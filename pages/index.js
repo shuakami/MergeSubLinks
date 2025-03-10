@@ -60,6 +60,8 @@ export default function Home() {
       <Head>
         <title>SubMerge | 订阅合并工具</title>
         <meta name="description" content="合并多个代理订阅链接为一个统一的订阅" />
+        <meta name="robots" content="nofollow" />
+        <meta name="disclaimer" content="本工具仅供技术研究和学习使用，不提供任何代理服务，也不生产任何代理内容" />
         <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
@@ -283,7 +285,7 @@ export default function Home() {
                         <svg className="h-4 w-4 mr-2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                         </svg>
-                        所有处理均在您的本地设备完成，我们不会存储任何订阅数据
+                        我们不会存储任何订阅数据
                       </div>
                     </div>
                   </div>
@@ -336,6 +338,18 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 免责声明 */}
+            <div className="mt-20 bg-neutral-50 rounded-xl p-6 border border-neutral-100">
+              <h2 className="text-xl font-semibold text-neutral-800 mb-4">免责声明</h2>
+              <div className="space-y-3 text-sm text-neutral-600">
+                <p>1. 本工具（SubMerge）仅供学习与技术研究使用，<strong>请勿用于非法用途</strong>。</p>
+                <p>2. 使用本工具的用户需遵守所在国家/地区的相关法律法规，如因使用不当导致的任何法律问题，本工具开发者概不负责。</p>
+                <p>3. 本工具不生产任何代理节点数据，仅提供订阅内容的整合服务，不对任何第三方提供的内容负责。</p>
+                <p>4. 本项目开源代码不含任何翻墙、爬墙等功能，仅为提高订阅管理效率的工具软件。</p>
+                <p>5. 本工具为开源项目，欢迎技术交流，但开发者保留对源代码的最终解释权。</p>
               </div>
             </div>
           </div>
