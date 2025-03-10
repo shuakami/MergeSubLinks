@@ -1,0 +1,385 @@
+import { useState, useRef } from 'react';
+import Head from 'next/head';
+
+export default function Home() {
+  const [urls, setUrls] = useState('');
+  const [format, setFormat] = useState('base64');
+  const [mergeUrl, setMergeUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const textAreaRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (!urls.trim()) {
+      alert('请至少输入一个订阅链接');
+      return;
+    }
+    
+    // 清理和分割链接
+    const urlList = urls.split('\n')
+      .map(url => url.trim())
+      .filter(Boolean);
+    
+    if (urlList.length === 0) {
+      alert('没有有效的订阅链接');
+      return;
+    }
+    
+    // 构建API URL
+    const encodedUrls = encodeURIComponent(urlList.join(','));
+    const apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
+    
+    setMergeUrl(apiUrl);
+    setIsLoading(true);
+    
+    // 模拟加载
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+  };
+  
+  const handleCopy = () => {
+    if (!mergeUrl) return;
+    
+    const fullUrl = window.location.origin + mergeUrl;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  
+  const handleClear = () => {
+    setUrls('');
+    setMergeUrl('');
+  };
+
+  return (
+    <>
+      <Head>
+        <title>SubMerge | 订阅合并工具</title>
+        <meta name="description" content="合并多个代理订阅链接为一个统一的订阅" />
+        <link rel="icon" href="/favicon.ico" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      </Head>
+
+      <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-neutral-100/80">
+        {/* 导航栏 */}
+        <nav className="sticky top-0 z-10 backdrop-blur-md bg-white/80 border-b border-neutral-200/80">
+          <div className="container-content flex h-16 items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-800 to-neutral-600">SubMerge</span>
+            </div>
+            <div>
+              <a 
+                href="https://github.com/shuakami/MergeSubLinks" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                <svg className="h-5 w-5 mr-1.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                </svg>
+                GitHub
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <main className="py-12">
+          <div className="container-content">
+            {/* 头部 */}
+            <div className="text-center mb-12">
+              <h1 className="text-4xl font-bold text-neutral-900 mb-3 tracking-tight">
+                订阅合并工具
+              </h1>
+              <p className="text-xl text-neutral-600 max-w-2xl mx-auto">
+                将多个代理订阅链接智能合并为一个，轻松管理您的所有节点资源
+              </p>
+            </div>
+
+            {/* 主内容 */}
+            <div className="grid gap-8 md:grid-cols-12">
+              {/* 左侧输入部分 */}
+              <div className="md:col-span-7">
+                <div className="glass-card overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-center mb-5">
+                      <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center mr-3">
+                        <svg className="h-4 w-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-lg font-semibold text-neutral-900">输入订阅链接</h2>
+                    </div>
+                    
+                    <form onSubmit={handleSubmit}>
+                      <div className="mb-6">
+                        <label htmlFor="urls" className="block text-sm font-medium text-neutral-700 mb-2">
+                          请在下方粘贴您的订阅链接，每行一个
+                        </label>
+                        <textarea
+                          id="urls"
+                          ref={textAreaRef}
+                          value={urls}
+                          onChange={(e) => setUrls(e.target.value)}
+                          className="input min-h-[180px] bg-neutral-50/50 font-mono text-sm"
+                          rows="6"
+                          placeholder={"例如：\nhttps://example1.com/sub\nhttps://example2.com/sub\n\n支持多种协议和格式 <3"}
+                          required
+                        ></textarea>
+                        <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
+                          支持 VMess、Trojan、Shadowsocks、ShadowsocksR 等多种协议 <br/>
+                          系统会自动检测格式，无需手动转换
+                        </p>
+                      </div>
+
+                      <div className="flex space-x-3">
+                        <button
+                          type="submit"
+                          className="btn btn-primary flex-1"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          生成我的合并链接
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClear}
+                          className="btn btn-secondary"
+                        >
+                          清空内容
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              {/* 右侧结果部分 */}
+              <div className="md:col-span-5">
+                {isLoading ? (
+                  <div className="glass-card p-8 flex flex-col items-center justify-center min-h-[280px]">
+                    <div className="relative w-12 h-12">
+                      <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-primary-500 animate-spin"></div>
+                      <div className="absolute inset-3 rounded-full border-t-2 border-r-2 border-primary-300 animate-spin"></div>
+                    </div>
+                    <p className="mt-4 text-neutral-600">正在处理订阅...</p>
+                  </div>
+                ) : mergeUrl ? (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex items-center mb-5">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <h2 className="text-lg font-semibold text-neutral-900">合并成功</h2>
+                      </div>
+                      
+                      <div className="mb-5">
+                        <div className="bg-neutral-800 rounded-xl px-4 py-3 relative font-mono text-sm overflow-hidden">
+                          <p className="break-all pr-10 text-neutral-200 text-xs leading-relaxed overflow-x-auto max-h-32 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-neutral-900 scrollbar-rounded">
+                            {window.location.origin}{mergeUrl}
+                          </p>
+                          <button
+                            onClick={handleCopy}
+                            className="absolute right-2 top-2 p-1.5 text-neutral-400 hover:text-neutral-200 rounded-md hover:bg-neutral-700/50 transition-colors"
+                            title="复制链接"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                          </button>
+                        </div>
+                        {copied && (
+                          <div className="flex items-center mt-2 text-sm text-green-600">
+                            <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>链接已成功复制到剪贴板</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-3">
+                        <a
+                          href={mergeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                          </svg>
+                          下载配置文件
+                        </a>
+                        <button
+                          onClick={handleCopy}
+                          className="btn btn-secondary"
+                        >
+                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                          </svg>
+                          复制订阅链接
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-neutral-100/50 bg-neutral-50/30 px-6 py-4">
+                      <div className="text-sm text-neutral-500 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        每次访问此链接都会自动获取最新的节点信息
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex items-center mb-5">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                          <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                        </div>
+                        <h2 className="text-lg font-semibold text-neutral-900">使用指南</h2>
+                      </div>
+                      
+                      <div className="space-y-4 text-sm text-neutral-600">
+                        <p>
+                          SubMerge 可以帮您将多个代理订阅链接智能合并为一个，实现统一管理和便捷使用。
+                        </p>
+                        <div className="space-y-3">
+                          <h3 className="font-medium text-neutral-800">使用步骤：</h3>
+                          <ol className="grid gap-2">
+                            <li className="flex items-start">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-600 mr-3">1</span>
+                              <span>在左侧文本框中<strong>粘贴您的订阅链接</strong>，每行输入一个</span>
+                            </li>
+                            <li className="flex items-start">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-600 mr-3">2</span>
+                              <span>点击<strong>"生成我的合并链接"</strong>按钮进行处理</span>
+                            </li>
+                            <li className="flex items-start">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-600 mr-3">3</span>
+                              <span>复制生成的链接或直接下载配置文件</span>
+                            </li>
+                            <li className="flex items-start">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-600 mr-3">4</span>
+                              <span>将新链接添加到您的代理客户端中即可使用</span>
+                            </li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-neutral-100/50 bg-neutral-50/30 px-6 py-4">
+                      <div className="text-sm text-neutral-500 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        所有处理均在您的本地设备完成，我们不会存储任何订阅数据
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 特性介绍 */}
+            <div className="mt-20">
+              <h2 className="text-2xl font-bold text-center mb-10">为什么选择 SubMerge？</h2>
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="gradient-border">
+                  <div>
+                    <div className="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center mb-4">
+                      <svg className="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">智能合并</h3>
+                    <p className="text-neutral-600 text-sm leading-relaxed">
+                      从多个订阅源获取节点，智能合并为一个统一链接，简化您的节点管理流程
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="gradient-border">
+                  <div>
+                    <div className="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center mb-4">
+                      <svg className="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">自动去重</h3>
+                    <p className="text-neutral-600 text-sm leading-relaxed">
+                      自动识别并删除重复节点，让您的订阅列表保持整洁高效
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="gradient-border">
+                  <div>
+                    <div className="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center mb-4">
+                      <svg className="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">多协议支持</h3>
+                    <p className="text-neutral-600 text-sm leading-relaxed">
+                      全面支持 VMess、Trojan、Shadowsocks、ShadowsocksR 等多种主流协议
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <footer className="bg-white border-t border-neutral-200/80 py-8 mt-20">
+          <div className="container-content">
+            <div className="flex flex-col items-center justify-center text-center">
+              <span className="text-lg font-bold text-neutral-900 mb-4">SubMerge</span>
+              <p className="text-sm text-neutral-500">
+                © {new Date().getFullYear()} SubMerge - Subscription Merger
+              </p>
+              <div className="mt-3 flex items-center space-x-4">
+                <a
+                  href="https://github.com/shuakami/MergeSubLinks"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-neutral-500 hover:text-neutral-700"
+                >
+                  GitHub
+                </a>
+                <span className="text-neutral-300">•</span>
+                <a
+                  href="/api/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-neutral-500 hover:text-neutral-700"
+                >
+                  API Documentation
+                </a>
+                <span className="text-neutral-300">•</span>
+                <a
+                  href="https://github.com/shuakami/MergeSubLinks/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-neutral-500 hover:text-neutral-700"
+                >
+                  Feedback
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </>
+  );
+} 

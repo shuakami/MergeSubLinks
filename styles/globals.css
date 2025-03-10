@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  
+  body {
+    @apply text-neutral-900 bg-white;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+}
+
+@layer components {
+  .container-content {
+    @apply w-full max-w-6xl mx-auto px-4 sm:px-6;
+  }
+  
+  .input {
+    @apply block w-full rounded-lg border border-neutral-200 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+  }
+  
+  .btn {
+    @apply flex items-center justify-center rounded-lg px-4 py-2 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 disabled:opacity-70 disabled:hover:bg-primary-600;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50 focus:ring-neutral-500 disabled:opacity-70 disabled:hover:bg-white;
+  }
+  
+  /* 导航项和面包屑 */
+  .nav-item {
+    @apply px-3 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-md hover:bg-neutral-50;
+  }
+  
+  .nav-item-active {
+    @apply text-primary-600 bg-primary-50;
+  }
+  
+  /* 节列表 */
+  .section-inner {
+    @apply py-6 px-6;
+  }
+  
+  .section-header {
+    @apply flex items-center mb-6;
+  }
+  
+  .section-icon {
+    @apply h-5 w-5 mr-2 text-primary-600;
+  }
+  
+  .section-title {
+    @apply text-lg font-medium;
+  }
+  
+  /* 单选按钮 */
+  .radio-button {
+    @apply relative flex border rounded-lg p-3 cursor-pointer items-center hover:bg-neutral-50 transition-colors;
+  }
+  
+  .radio-circle {
+    @apply h-5 w-5 rounded-full border-2 border-neutral-300 mr-3 flex items-center justify-center;
+  }
+  
+  .radio-dot {
+    @apply h-2 w-2 rounded-full bg-primary-500;
+  }
+  
+  /* 列表样式 */
+  .list-item {
+    @apply flex items-start;
+  }
+  
+  .list-number {
+    @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-600 mr-3;
+  }
+  
+  /* 页脚 */
+  .footer {
+    @apply bg-white border-t border-neutral-100 py-8 mt-16;
+  }
+
+  .section {
+    @apply py-6;
+  }
+
+  .divider {
+    @apply h-px w-full bg-neutral-100 my-6;
+  }
+
+  .light-bg {
+    @apply bg-neutral-50;
+  }
+
+  .white-bg {
+    @apply bg-white;
+  }
+}
+
+/* 主题颜色 */
+:root {
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+  --color-primary-950: #082f49;
+} 
