@@ -1,5 +1,6 @@
 const https = require('https');
 const http = require('http');
+const yaml = require('js-yaml');
 
 // 使用Node.js内置的http/https模块发起请求
 async function fetchUrl(url, timeout = 10000) {
@@ -41,7 +42,7 @@ function uniqueArray(array) {
 }
 
 // 解析单个订阅链接
-async function parseSubscription(url, format = 'base64') {
+async function parseSubscription(url) {
   try {
     // 使用自定义函数发起请求
     const text = await fetchUrl(url, 10000);
@@ -80,43 +81,141 @@ async function parseSubscription(url, format = 'base64') {
   }
 }
 
-// 从文本中提取节点
+// 提取节点信息
 function extractNodes(text) {
   const nodes = [];
+  const lines = text.split('\n');
   
-  // 提取VMess节点
-  const vmessRegex = /vmess:\/\/[A-Za-z0-9+/=]+/g;
-  const vmessNodes = text.match(vmessRegex) || [];
-  nodes.push(...vmessNodes);
-  
-  // 提取Trojan节点
-  const trojanRegex = /trojan:\/\/[A-Za-z0-9+/=]+@[A-Za-z0-9.-]+:[0-9]+/g;
-  const trojanNodes = text.match(trojanRegex) || [];
-  nodes.push(...trojanNodes);
-  
-  // 提取SS节点
-  const ssRegex = /ss:\/\/[A-Za-z0-9+/=]+/g;
-  const ssNodes = text.match(ssRegex) || [];
-  nodes.push(...ssNodes);
-  
-  // 提取SSR节点
-  const ssrRegex = /ssr:\/\/[A-Za-z0-9+/=]+/g;
-  const ssrNodes = text.match(ssrRegex) || [];
-  nodes.push(...ssrNodes);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.startsWith('vmess://') || 
+        trimmed.startsWith('trojan://') || 
+        trimmed.startsWith('ss://') || 
+        trimmed.startsWith('ssr://')) {
+      nodes.push(trimmed);
+    } else if (trimmed.startsWith('proxies:')) {
+      // 处理 Clash 配置
+      try {
+        const config = yaml.load(text);
+        if (config && Array.isArray(config.proxies)) {
+          for (const proxy of config.proxies) {
+            const encoded = Buffer.from(JSON.stringify(proxy)).toString('base64');
+            nodes.push(`vmess://${encoded}`);
+          }
+        }
+      } catch (e) {
+        console.error('解析 Clash 配置失败:', e);
+      }
+    }
+  }
   
   return nodes;
 }
 
-// 将节点转换为指定格式
-function convertNodes(nodes, format = 'base64') {
-  if (format === 'base64') {
-    return Buffer.from(nodes.join('\n')).toString('base64');
-  } else if (format === 'clash') {
-    // TODO: 实现Clash配置生成
-    return Buffer.from(nodes.join('\n')).toString('base64');
+// 将节点转换为Clash配置
+function convertToClash(nodes) {
+  const config = {
+    port: 7890,
+    'socks-port': 7891,
+    'allow-lan': true,
+    mode: 'rule',
+    'log-level': 'info',
+    proxies: [],
+    'proxy-groups': [
+      {
+        name: '🚀 节点选择',
+        type: 'select',
+        proxies: ['♻️ 自动选择']
+      },
+      {
+        name: '♻️ 自动选择',
+        type: 'url-test',
+        url: 'http://www.gstatic.com/generate_204',
+        interval: 300,
+        tolerance: 50,
+        proxies: []
+      }
+    ],
+    rules: [
+      'MATCH,🚀 节点选择'
+    ]
+  };
+
+  // 处理每个节点
+  for (const node of nodes) {
+    try {
+      let proxy;
+      if (node.startsWith('vmess://')) {
+        const decoded = JSON.parse(Buffer.from(node.replace('vmess://', ''), 'base64').toString());
+        proxy = {
+          name: decoded.ps || '未命名节点',
+          type: 'vmess',
+          server: decoded.add,
+          port: parseInt(decoded.port),
+          uuid: decoded.id,
+          alterId: parseInt(decoded.aid) || 0,
+          cipher: decoded.scy || 'auto',
+          tls: decoded.tls === 'tls',
+          network: decoded.net || 'tcp',
+          'ws-opts': decoded.net === 'ws' ? {
+            path: decoded.path || '/',
+            headers: decoded.host ? { Host: decoded.host } : undefined
+          } : undefined
+        };
+      } else if (node.startsWith('trojan://')) {
+        const url = new URL(node);
+        proxy = {
+          name: url.hash ? decodeURIComponent(url.hash.slice(1)) : url.hostname,
+          type: 'trojan',
+          server: url.hostname,
+          port: parseInt(url.port),
+          password: url.username,
+          sni: url.searchParams.get('sni') || url.hostname,
+          'skip-cert-verify': url.searchParams.get('allowInsecure') === '1'
+        };
+      } else if (node.startsWith('ss://')) {
+        const ssUrl = node.replace('ss://', '');
+        let server, port, method, password, name;
+        
+        if (ssUrl.includes('@')) {
+          const [userInfo, serverInfo] = ssUrl.split('@');
+          const decodedUserInfo = Buffer.from(userInfo, 'base64').toString();
+          [method, password] = decodedUserInfo.split(':');
+          
+          const serverParts = serverInfo.split('#');
+          [server, port] = serverParts[0].split(':');
+          name = serverParts[1] ? decodeURIComponent(serverParts[1]) : server;
+        } else {
+          const decodedUrl = Buffer.from(ssUrl.split('#')[0], 'base64').toString();
+          const [methodAndPass, serverAndPort] = decodedUrl.split('@');
+          [method, password] = methodAndPass.split(':');
+          [server, port] = serverAndPort.split(':');
+          name = ssUrl.includes('#') ? decodeURIComponent(ssUrl.split('#')[1]) : server;
+        }
+        
+        proxy = {
+          name,
+          type: 'ss',
+          server,
+          port: parseInt(port),
+          cipher: method,
+          password
+        };
+      }
+
+      if (proxy) {
+        config.proxies.push(proxy);
+        config['proxy-groups'][0].proxies.push(proxy.name);
+        config['proxy-groups'][1].proxies.push(proxy.name);
+      }
+    } catch (e) {
+      console.error('节点解析失败:', e);
+    }
   }
-  
-  return Buffer.from(nodes.join('\n')).toString('base64');
+
+  return yaml.dump(config);
 }
 
 // 获取节点类型统计信息
@@ -145,7 +244,7 @@ function getNodeTypesStats(nodes) {
 }
 
 export default async function handler(req, res) {
-  const { urls, format = 'base64' } = req.query;
+  const { urls } = req.query;
   
   // 验证请求参数
   if (!urls) {
@@ -176,7 +275,7 @@ export default async function handler(req, res) {
   for (const url of urlList) {
     try {
       console.log(`解析订阅: ${url}`);
-      const result = await parseSubscription(url, format);
+      const result = await parseSubscription(url);
       
       if (result.success) {
         allNodes.push(...result.nodes);
@@ -185,7 +284,6 @@ export default async function handler(req, res) {
         console.log(`获取订阅内容失败: ${result.error}`);
       }
       
-      // 记录处理结果
       results.push({
         url,
         success: result.success,
@@ -209,41 +307,18 @@ export default async function handler(req, res) {
   
   // 如果所有URL都返回错误且没有节点，返回错误
   if (uniqueNodes.length === 0) {
-    return res.status(200).json({
+    return res.status(400).json({
       success: false,
       error: '合并失败',
       message: '无法从订阅链接获取任何节点',
-      results,
-      stats: {
-        total_nodes: 0,
-        node_types: {}
-      }
+      results
     });
   }
   
-  // 转换为指定格式
-  const output = convertNodes(uniqueNodes, format);
+  // 生成Clash配置
+  const clashConfig = convertToClash(uniqueNodes);
   
-  // 生成节点统计信息
-  const stats = {
-    total_nodes: uniqueNodes.length,
-    node_types: getNodeTypesStats(uniqueNodes)
-  };
-  
-  // 判断客户端接受的返回类型
-  const acceptHeader = req.headers.accept || '';
-  
-  if (acceptHeader.includes('application/json')) {
-    // 返回JSON格式的信息
-    return res.status(200).json({
-      success: true,
-      output,
-      results,
-      stats
-    });
-  } else {
-    // 直接返回合并后的节点数据
-    res.setHeader('Content-Type', format === 'clash' ? 'text/yaml' : 'text/plain');
-    return res.status(200).send(output);
-  }
+  // 设置响应头并返回
+  res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+  return res.status(200).send(clashConfig);
 }
