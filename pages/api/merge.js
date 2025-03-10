@@ -298,114 +298,89 @@ function mergeConfigs(configs) {
     return null;
   }
   
-  // 找到包含最完整规则集的配置
-  let mostCompleteConfig = configs[0];
-  let maxRulesCount = configs[0]?.rules?.length || 0;
-  let maxGroupsCount = configs[0]?.['proxy-groups']?.length || 0;
-  
-  configs.forEach(config => {
-    if (!config) return;
-    
-    const rulesCount = config.rules?.length || 0;
-    const groupsCount = config['proxy-groups']?.length || 0;
-    
-    // 如果当前配置有更多的规则和代理组，认为它更完整
-    if (rulesCount > maxRulesCount || (rulesCount === maxRulesCount && groupsCount > maxGroupsCount)) {
-      mostCompleteConfig = config;
-      maxRulesCount = rulesCount;
-      maxGroupsCount = groupsCount;
-    }
-  });
-  
-  // 使用最完整的配置作为基础
-  const baseConfig = JSON.parse(JSON.stringify(mostCompleteConfig || {}));
-  
-  // 确保基本结构存在
-  baseConfig.proxies = baseConfig.proxies || [];
-  baseConfig['proxy-groups'] = baseConfig['proxy-groups'] || [];
-  baseConfig.rules = baseConfig.rules || [];
-  
-  // 提取所有代理组名称，用于后续检查
-  const proxyGroupNames = new Set(baseConfig['proxy-groups'].map(group => group.name));
-  
-  // 默认添加 DIRECT 和 REJECT 到代理组名称集合
-  proxyGroupNames.add('DIRECT');
-  proxyGroupNames.add('REJECT');
-  
-  // 收集所有唯一的节点
+  // 从所有配置中收集节点
   const allProxies = [];
   const processedNodes = new Set();
   
-  // 处理所有配置
+  // 首先从所有配置中收集所有节点
   configs.forEach(config => {
-    if (!config) return;
+    if (!config || !config.proxies || !Array.isArray(config.proxies)) return;
     
-    // 合并节点
-    if (config.proxies && Array.isArray(config.proxies)) {
-      config.proxies.forEach(proxy => {
-        // 过滤无效节点
-        if (!proxy || !proxy.name || !proxy.server) return;
-        
-        // 过滤流量/套餐信息节点
-        if (proxy.name.includes('流量') || 
-            proxy.name.includes('剩余') || 
-            proxy.name.includes('套餐') || 
-            proxy.name.includes('过期')) {
-          return;
-        }
-        
-        // 处理节点重名
-        let baseName = proxy.name;
-        let counter = 1;
-        while (processedNodes.has(proxy.name)) {
-          proxy.name = `${baseName} (${counter})`;
-          counter++;
-        }
-        
-        processedNodes.add(proxy.name);
-        allProxies.push(proxy);
-      });
-    }
+    config.proxies.forEach(proxy => {
+      // 基本验证
+      if (!proxy || !proxy.server) return;
+      
+      // 确保节点有名称
+      if (!proxy.name) {
+        proxy.name = `${proxy.type || 'unknown'}-${proxy.server}:${proxy.port || '0'}`;
+      }
+      
+      // 处理节点重名
+      let baseName = proxy.name;
+      let counter = 1;
+      while (processedNodes.has(proxy.name)) {
+        proxy.name = `${baseName} (${counter})`;
+        counter++;
+      }
+      
+      processedNodes.add(proxy.name);
+      allProxies.push({...proxy}); // 复制节点对象，避免引用问题
+    });
   });
   
-  // 将收集到的所有节点添加到基础配置中
+  // 根据配置完整度排序配置
+  configs.sort((a, b) => {
+    if (!a || !b) return !a ? 1 : -1;
+    
+    // 计算配置完整度得分
+    const scoreA = (a.rules?.length || 0) * 2 + 
+                  (a['proxy-groups']?.length || 0) * 3 + 
+                  (a.dns ? 5 : 0) + 
+                  (a.hosts ? 3 : 0);
+                  
+    const scoreB = (b.rules?.length || 0) * 2 + 
+                  (b['proxy-groups']?.length || 0) * 3 + 
+                  (b.dns ? 5 : 0) + 
+                  (b.hosts ? 3 : 0);
+                  
+    return scoreB - scoreA; // 降序，最完整的配置排在前面
+  });
+  
+  // 选择最完整的配置作为基础
+  const baseConfig = configs[0] ? JSON.parse(JSON.stringify(configs[0])) : {};
+  
+  // 确保基本字段存在
+  baseConfig.port = baseConfig.port || 7890;
+  baseConfig['socks-port'] = baseConfig['socks-port'] || 7891;
+  baseConfig['log-level'] = baseConfig['log-level'] || 'info';
+  baseConfig.proxies = [];
+  baseConfig['proxy-groups'] = baseConfig['proxy-groups'] || [];
+  baseConfig.rules = baseConfig.rules || [];
+  
+  // 添加所有收集到的代理节点
   baseConfig.proxies = allProxies;
   
-  // 清理并更新代理组
-  const validProxyNames = new Set(allProxies.map(p => p.name));
+  // 获取所有现有代理组的名称
+  const proxyGroupNames = new Set(baseConfig['proxy-groups'].map(group => group.name));
   
-  // 为每个代理组更新节点列表
+  // 获取所有节点的名称
+  const proxyNames = new Set(allProxies.map(proxy => proxy.name));
+  
+  // 更新每个代理组
   baseConfig['proxy-groups'].forEach(group => {
-    // 保留原始proxies中的特殊值和有效节点
-    const origProxies = group.proxies || [];
+    // 确保proxies字段存在
+    group.proxies = group.proxies || [];
     
-    // 过滤掉无效的代理
-    group.proxies = origProxies.filter(proxy => {
-      // 保留特殊代理类型和存在的代理组
-      return proxy === 'DIRECT' || 
-             proxy === 'REJECT' || 
-             proxyGroupNames.has(proxy) || 
-             validProxyNames.has(proxy);
+    // 过滤掉不存在的代理
+    group.proxies = group.proxies.filter(proxyName => {
+      return proxyName === 'DIRECT' || 
+             proxyName === 'REJECT' || 
+             proxyGroupNames.has(proxyName) || 
+             proxyNames.has(proxyName);
     });
     
-    // 对于选择类型的代理组，添加所有节点
-    if (group.type === 'select' && 
-        !group.name.includes('拦截') && 
-        !group.name.includes('直连') && 
-        !group.name.includes('净化')) {
-      // 添加所有节点到选择组
-      allProxies.forEach(proxy => {
-        if (!group.proxies.includes(proxy.name)) {
-          group.proxies.push(proxy.name);
-        }
-      });
-    }
-    
-    // 对于URL测试/负载均衡类型，也添加所有节点
-    if ((group.type === 'url-test' || group.type === 'load-balance') && 
-        !group.name.includes('拦截') && 
-        !group.name.includes('直连') && 
-        !group.name.includes('净化')) {
+    // 添加所有代理到url-test类型的组
+    if (group.type === 'url-test' || group.type === 'fallback' || group.type === 'load-balance') {
       allProxies.forEach(proxy => {
         if (!group.proxies.includes(proxy.name)) {
           group.proxies.push(proxy.name);
@@ -414,48 +389,78 @@ function mergeConfigs(configs) {
     }
   });
   
-  // 处理规则中的策略组引用
+  // 修复规则中引用的不存在的代理组
   if (baseConfig.rules && baseConfig.rules.length > 0) {
     baseConfig.rules = baseConfig.rules.map(rule => {
       const parts = rule.split(',');
       if (parts.length < 2) return rule;
       
-      // 获取策略名称
       const policyName = parts[parts.length - 1].trim();
       
-      // 如果策略名称不存在于代理组列表中
-      if (!proxyGroupNames.has(policyName) && policyName !== 'DIRECT' && policyName !== 'REJECT') {
-        // 默认使用第一个代理组（通常是节点选择）
-        parts[parts.length - 1] = baseConfig['proxy-groups'][0]?.name || 'DIRECT';
+      // 检查策略是否存在
+      if (policyName !== 'DIRECT' && 
+          policyName !== 'REJECT' && 
+          !proxyGroupNames.has(policyName)) {
+        // 如果策略不存在，替换为一个存在的策略
+        // 尝试找到通常用作默认策略的组（包含关键字的）
+        const defaultGroup = baseConfig['proxy-groups'].find(g => 
+          g.name.toLowerCase().includes('选择') || 
+          g.name.toLowerCase().includes('select') ||
+          g.name.toLowerCase().includes('auto')
+        );
+        
+        if (defaultGroup) {
+          parts[parts.length - 1] = defaultGroup.name;
+        } else if (baseConfig['proxy-groups'].length > 0) {
+          // 如果没有找到符合条件的，就使用第一个组
+          parts[parts.length - 1] = baseConfig['proxy-groups'][0].name;
+        } else {
+          // 如果没有代理组，使用DIRECT
+          parts[parts.length - 1] = 'DIRECT';
+        }
       }
       
       return parts.join(',');
     });
   }
   
-  // 如果没有代理组，创建默认的代理组
+  // 如果没有代理组但有代理，尝试从其他配置中合并代理组结构
   if (baseConfig['proxy-groups'].length === 0 && allProxies.length > 0) {
-    // 创建默认的代理组结构
-    baseConfig['proxy-groups'] = [
-      {
-        name: '节点选择',
-        type: 'select',
-        proxies: ['DIRECT', ...allProxies.map(p => p.name)]
-      },
-      {
-        name: '自动选择',
-        type: 'url-test',
-        url: 'http://www.gstatic.com/generate_204',
-        interval: 300,
-        tolerance: 50,
-        proxies: [...allProxies.map(p => p.name)]
+    // 寻找有代理组的配置
+    for (const config of configs) {
+      if (config && config['proxy-groups'] && config['proxy-groups'].length > 0) {
+        // 复制代理组结构，但使用我们的代理
+        const groups = JSON.parse(JSON.stringify(config['proxy-groups']));
+        
+        groups.forEach(group => {
+          if (group.type === 'select' || group.type === 'url-test' || 
+              group.type === 'fallback' || group.type === 'load-balance') {
+            // 重置代理列表，添加我们的代理
+            group.proxies = [];
+            
+            // 添加特殊值
+            if (group.type === 'select') {
+              group.proxies.push('DIRECT');
+            }
+            
+            // 添加所有代理
+            allProxies.forEach(proxy => {
+              group.proxies.push(proxy.name);
+            });
+          }
+        });
+        
+        baseConfig['proxy-groups'] = groups;
+        break;
       }
-    ];
-    
-    // 更新规则，指向节点选择
-    if (baseConfig.rules.length === 0) {
-      baseConfig.rules = ['MATCH,节点选择'];
     }
+  }
+  
+  // 如果仍然没有MATCH规则，添加一个指向第一个代理组
+  if (baseConfig.rules.length === 0 && baseConfig['proxy-groups'].length > 0) {
+    baseConfig.rules.push(`MATCH,${baseConfig['proxy-groups'][0].name}`);
+  } else if (baseConfig.rules.length === 0) {
+    baseConfig.rules.push('MATCH,DIRECT');
   }
   
   return baseConfig;
