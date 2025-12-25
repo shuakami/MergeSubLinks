@@ -184,19 +184,57 @@ function parseSS(url) {
     
     if (url.includes('@')) {
       // 新版格式: ss://BASE64(method:password)@server:port#name
-      const [b64MethodPass, serverPart] = url.split('@', 2);
-      const methodPass = Base64.decode(b64MethodPass);
-      const [method, password] = methodPass.split(':', 2);
+      // 或者: ss://method:password@server:port#name (SIP002)
+      const atIndex = url.indexOf('@');
+      const userInfo = url.substring(0, atIndex);
+      const serverPart = url.substring(atIndex + 1);
       
-      let server, port, name;
-      if (serverPart.includes('#')) {
-        const [serverAndPort, rawName] = serverPart.split('#', 2);
-        [server, port] = serverAndPort.split(':', 2);
-        name = decodeURIComponent(rawName);
-      } else {
-        [server, port] = serverPart.split(':', 2);
-        name = server;
+      // 尝试 base64 解码 userInfo
+      let method, password;
+      try {
+        // 处理 URL-safe base64
+        const normalizedB64 = userInfo.replace(/-/g, '+').replace(/_/g, '/');
+        const decodedUserInfo = Base64.decode(normalizedB64);
+        // 检查解码结果是否包含冒号（有效的 method:password 格式）
+        if (decodedUserInfo.includes(':')) {
+          const colonIndex = decodedUserInfo.indexOf(':');
+          method = decodedUserInfo.substring(0, colonIndex);
+          password = decodedUserInfo.substring(colonIndex + 1);
+        } else {
+          // 如果解码后没有冒号，可能不是 base64，尝试直接解析
+          const decoded = decodeURIComponent(userInfo);
+          const colonIndex = decoded.indexOf(':');
+          method = decoded.substring(0, colonIndex);
+          password = decoded.substring(colonIndex + 1);
+        }
+      } catch (e) {
+        // base64 解码失败，尝试 URL 解码
+        const decoded = decodeURIComponent(userInfo);
+        const colonIndex = decoded.indexOf(':');
+        method = decoded.substring(0, colonIndex);
+        password = decoded.substring(colonIndex + 1);
       }
+      
+      // 解析 server:port#name
+      let server, port, name;
+      let serverAndPort = serverPart;
+      
+      if (serverPart.includes('#')) {
+        const hashIndex = serverPart.indexOf('#');
+        serverAndPort = serverPart.substring(0, hashIndex);
+        name = decodeURIComponent(serverPart.substring(hashIndex + 1));
+      }
+      
+      // 处理可能的查询参数
+      if (serverAndPort.includes('?')) {
+        serverAndPort = serverAndPort.split('?')[0];
+      }
+      
+      const lastColonIndex = serverAndPort.lastIndexOf(':');
+      server = serverAndPort.substring(0, lastColonIndex);
+      port = serverAndPort.substring(lastColonIndex + 1);
+      
+      if (!name) name = server;
       
       return {
         name: name,
@@ -210,15 +248,26 @@ function parseSS(url) {
       // 旧版格式: ss://BASE64(method:password@server:port)#name
       let name = '';
       if (url.includes('#')) {
-        const parts = url.split('#', 2);
-        url = parts[0];
-        name = decodeURIComponent(parts[1]);
+        const hashIndex = url.indexOf('#');
+        name = decodeURIComponent(url.substring(hashIndex + 1));
+        url = url.substring(0, hashIndex);
       }
       
-      const decoded = Base64.decode(url);
-      const [methodPass, serverPort] = decoded.split('@', 2);
-      const [method, password] = methodPass.split(':', 2);
-      const [server, port] = serverPort.split(':', 2);
+      // 处理 URL-safe base64
+      const normalizedB64 = url.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = Base64.decode(normalizedB64);
+      const atIndex = decoded.lastIndexOf('@');
+      
+      const methodPass = decoded.substring(0, atIndex);
+      const serverPort = decoded.substring(atIndex + 1);
+      
+      const colonIndex = methodPass.indexOf(':');
+      const method = methodPass.substring(0, colonIndex);
+      const password = methodPass.substring(colonIndex + 1);
+      
+      const lastColonIndex = serverPort.lastIndexOf(':');
+      const server = serverPort.substring(0, lastColonIndex);
+      const port = serverPort.substring(lastColonIndex + 1);
       
       return {
         name: name || server,

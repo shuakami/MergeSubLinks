@@ -630,30 +630,83 @@ function convertNodeToConfig(nodeStr) {
         let server, port, method, password, name;
         
         if (ssUrl.includes('@')) {
-          // 处理形如 ss://method:password@server:port#name 的格式
-          const match = ssUrl.match(/^(?:([^:]+):([^@]+)@)?([^#:]+):(\d+)(?:#(.+))?$/);
-          if (match) {
-            method = decodeURIComponent(match[1]);
-            password = decodeURIComponent(match[2]);
-            server = match[3];
-            port = parseInt(match[4]);
-            name = match[5] ? decodeURIComponent(match[5]) : server;
-          } else {
-            throw new Error('Invalid SS URL format');
+          // 新版格式: ss://BASE64(method:password)@server:port#name
+          // 或者: ss://method:password@server:port#name (SIP002)
+          const atIndex = ssUrl.indexOf('@');
+          const userInfo = ssUrl.substring(0, atIndex);
+          const serverPart = ssUrl.substring(atIndex + 1);
+          
+          // 尝试 base64 解码 userInfo
+          let decodedUserInfo;
+          try {
+            // 处理 URL-safe base64
+            const normalizedB64 = userInfo.replace(/-/g, '+').replace(/_/g, '/');
+            decodedUserInfo = Buffer.from(normalizedB64, 'base64').toString();
+            // 检查解码结果是否包含冒号（有效的 method:password 格式）
+            if (!decodedUserInfo.includes(':')) {
+              // 如果解码后没有冒号，可能不是 base64，尝试直接解析
+              decodedUserInfo = decodeURIComponent(userInfo);
+            }
+          } catch (e) {
+            // base64 解码失败，尝试 URL 解码
+            decodedUserInfo = decodeURIComponent(userInfo);
           }
+          
+          const colonIndex = decodedUserInfo.indexOf(':');
+          if (colonIndex !== -1) {
+            method = decodedUserInfo.substring(0, colonIndex);
+            password = decodedUserInfo.substring(colonIndex + 1);
+          } else {
+            throw new Error('Invalid SS userinfo format');
+          }
+          
+          // 解析 server:port#name
+          let serverAndPort;
+          if (serverPart.includes('#')) {
+            const hashIndex = serverPart.indexOf('#');
+            serverAndPort = serverPart.substring(0, hashIndex);
+            name = decodeURIComponent(serverPart.substring(hashIndex + 1));
+          } else {
+            serverAndPort = serverPart;
+          }
+          
+          // 处理可能的查询参数
+          if (serverAndPort.includes('?')) {
+            serverAndPort = serverAndPort.split('?')[0];
+          }
+          
+          const lastColonIndex = serverAndPort.lastIndexOf(':');
+          if (lastColonIndex !== -1) {
+            server = serverAndPort.substring(0, lastColonIndex);
+            port = parseInt(serverAndPort.substring(lastColonIndex + 1));
+          } else {
+            throw new Error('Invalid SS server:port format');
+          }
+          
+          if (!name) name = server;
         } else {
-          // 处理形如 ss://BASE64(method:password@server:port)#name 的格式
+          // 旧版格式: ss://BASE64(method:password@server:port)#name
           const parts = ssUrl.split('#');
           const b64 = parts[0];
           name = parts[1] ? decodeURIComponent(parts[1]) : '';
           
-          const decoded = Buffer.from(b64, 'base64').toString();
-          const match = decoded.match(/^([^:]+):([^@]+)@([^:]+):(\d+)$/);
-          if (match) {
-            method = match[1];
-            password = match[2];
-            server = match[3];
-            port = parseInt(match[4]);
+          // 处理 URL-safe base64
+          const normalizedB64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+          const decoded = Buffer.from(normalizedB64, 'base64').toString();
+          const atIndex = decoded.lastIndexOf('@');
+          
+          if (atIndex !== -1) {
+            const methodPass = decoded.substring(0, atIndex);
+            const serverPort = decoded.substring(atIndex + 1);
+            
+            const colonIndex = methodPass.indexOf(':');
+            method = methodPass.substring(0, colonIndex);
+            password = methodPass.substring(colonIndex + 1);
+            
+            const lastColonIndex = serverPort.lastIndexOf(':');
+            server = serverPort.substring(0, lastColonIndex);
+            port = parseInt(serverPort.substring(lastColonIndex + 1));
+            
             if (!name) name = server;
           } else {
             throw new Error('Invalid decoded SS URL format');
