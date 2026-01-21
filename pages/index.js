@@ -3,11 +3,17 @@ import Head from 'next/head';
 
 export default function Home() {
   const [urls, setUrls] = useState('');
-  const [format, setFormat] = useState('base64');
+  const [format, setFormat] = useState('clash');
   const [mergeUrl, setMergeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const textAreaRef = useRef(null);
+
+  const formatOptions = [
+    { value: 'clash', label: 'Clash / Clash.Meta', api: '/api/merge' },
+    { value: 'singbox', label: 'sing-box', api: '/api/singbox' },
+    { value: 'base64', label: 'Base64 (通用)', api: '/api/merge' },
+  ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,7 +35,14 @@ export default function Home() {
     
     // 构建API URL
     const encodedUrls = encodeURIComponent(urlList.join(','));
-    const apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
+    const selectedFormat = formatOptions.find(f => f.value === format);
+    
+    let apiUrl;
+    if (format === 'singbox') {
+      apiUrl = `/api/singbox?urls=${encodedUrls}`;
+    } else {
+      apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
+    }
     
     setMergeUrl(apiUrl);
     setIsLoading(true);
@@ -132,8 +145,36 @@ export default function Home() {
                           required
                         ></textarea>
                         <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
-                          支持 VMess、Trojan、Shadowsocks、ShadowsocksR 等多种协议 <br/>
+                          支持 VMess、VLESS、Trojan、Shadowsocks、Hysteria2、TUIC、WireGuard 等协议 <br/>
                           系统会自动检测格式，无需手动转换
+                        </p>
+                      </div>
+
+                      {/* 输出格式选择 */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-neutral-700 mb-3">
+                          选择输出格式
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {formatOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setFormat(option.value)}
+                              className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                format === option.value
+                                  ? 'bg-primary-500 text-white shadow-md shadow-primary-500/25'
+                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-xs text-neutral-500">
+                          {format === 'singbox' && '适用于 sing-box 客户端，输出完整 JSON 配置'}
+                          {format === 'clash' && '适用于 Clash / Clash.Meta / Stash 等客户端'}
+                          {format === 'base64' && '通用 Base64 格式，兼容大多数客户端'}
                         </p>
                       </div>
 
@@ -334,7 +375,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-lg font-medium mb-2">多协议支持</h3>
                     <p className="text-neutral-600 text-sm leading-relaxed">
-                      全面支持 VMess、Trojan、Shadowsocks、ShadowsocksR 等多种主流协议
+                      全面支持 VMess、VLESS、Trojan、SS、Hysteria2、TUIC、WireGuard 等 10+ 种协议
                     </p>
                   </div>
                 </div>
