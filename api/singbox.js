@@ -1305,11 +1305,6 @@ function generateSingBoxConfig(proxies, options = {}) {
       {
         type: 'direct',
         tag: 'direct'
-      },
-      // DNS 出站
-      {
-        type: 'dns',
-        tag: 'dns-out'
       }
     ],
     route: {
