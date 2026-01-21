@@ -1212,11 +1212,23 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   }
   
-  // 构建完整配置
+  // 构建完整配置 (sing-box 1.11+ 格式)
   const config = {
     log: {
       level: 'info',
       timestamp: true
+    },
+    experimental: {
+      clash_api: {
+        external_controller: '127.0.0.1:9090',
+        external_ui: 'ui',
+        secret: '',
+        default_mode: 'rule'
+      },
+      cache_file: {
+        enabled: true,
+        store_fakeip: false
+      }
     },
     dns: {
       servers: [
@@ -1242,14 +1254,30 @@ function generateSingBoxConfig(proxies, options = {}) {
           server: 'dns-direct'
         }
       ],
-      final: 'dns-remote'
+      final: 'dns-remote',
+      strategy: 'prefer_ipv4'
     },
     inbounds: [
+      {
+        type: 'tun',
+        tag: 'tun-in',
+        interface_name: 'sing-box',
+        inet4_address: '172.19.0.1/30',
+        inet6_address: 'fdfe:dcba:9876::1/126',
+        mtu: 9000,
+        auto_route: true,
+        strict_route: true,
+        stack: 'system',
+        sniff: true,
+        sniff_override_destination: true
+      },
       {
         type: 'mixed',
         tag: 'mixed-in',
         listen: '127.0.0.1',
-        listen_port: 7890
+        listen_port: 7890,
+        sniff: true,
+        sniff_override_destination: true
       }
     ],
     outbounds: [
@@ -1257,7 +1285,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       {
         type: 'selector',
         tag: 'proxy',
-        outbounds: ['auto', ...proxyTags],
+        outbounds: ['auto', ...proxyTags, 'direct'],
         default: 'auto'
       },
       // 自动选择组
@@ -1271,15 +1299,12 @@ function generateSingBoxConfig(proxies, options = {}) {
       },
       // 所有代理节点
       ...outbounds,
-      // 直连和拒绝
+      // 直连 (sing-box 1.11+ 格式)
       {
         type: 'direct',
         tag: 'direct'
       },
-      {
-        type: 'block',
-        tag: 'block'
-      },
+      // DNS 出站
       {
         type: 'dns',
         tag: 'dns-out'
@@ -1294,6 +1319,30 @@ function generateSingBoxConfig(proxies, options = {}) {
         {
           ip_is_private: true,
           outbound: 'direct'
+        },
+        {
+          rule_set: 'geosite-cn',
+          outbound: 'direct'
+        },
+        {
+          rule_set: 'geoip-cn',
+          outbound: 'direct'
+        }
+      ],
+      rule_set: [
+        {
+          tag: 'geosite-cn',
+          type: 'remote',
+          format: 'binary',
+          url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs',
+          download_detour: 'direct'
+        },
+        {
+          tag: 'geoip-cn',
+          type: 'remote',
+          format: 'binary',
+          url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs',
+          download_detour: 'direct'
         }
       ],
       final: 'proxy',
