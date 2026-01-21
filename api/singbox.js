@@ -55,11 +55,21 @@ async function fetchUrl(url, timeout = 15000) {
       reject(new Error('请求超时'));
     }, timeout);
 
-    const req = protocol.get(url, {
+    const parsedUrl = new URL(url);
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'GET',
       headers: {
-        'User-Agent': 'sing-box/1.0 (SubStore-Converter)'
+        'User-Agent': 'ClashForAndroid/2.5.12',
+        'Accept': '*/*',
+        'Accept-Encoding': 'identity',
+        'Connection': 'keep-alive'
       }
-    }, (res) => {
+    };
+
+    const req = protocol.request(options, (res) => {
       clearTimeout(requestTimeout);
       
       // 处理重定向
@@ -82,6 +92,8 @@ async function fetchUrl(url, timeout = 15000) {
       clearTimeout(requestTimeout);
       reject(error);
     });
+    
+    req.end();
   });
 }
 
