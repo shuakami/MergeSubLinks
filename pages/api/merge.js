@@ -163,6 +163,69 @@ function extractNodes(text) {
   return nodes;
 }
 
+// 解析直接粘贴的内容
+function parseDirectContent(text) {
+  const nodes = [];
+  
+  // 尝试 Base64 解码
+  let content = text;
+  try {
+    const decoded = Buffer.from(text.trim(), 'base64').toString('utf-8');
+    if (decoded.includes('://') || decoded.includes('proxies:')) {
+      content = decoded;
+    }
+  } catch (e) {
+    // 不是 Base64，使用原始内容
+  }
+  
+  // 尝试解析为 YAML/JSON 配置
+  if (content.includes('proxies:') || content.includes('"proxies"')) {
+    try {
+      const config = yaml.load(content);
+      if (config && Array.isArray(config.proxies)) {
+        for (const proxy of config.proxies) {
+          nodes.push(JSON.stringify(proxy));
+        }
+        return nodes;
+      }
+    } catch (e) {
+      try {
+        const config = JSON.parse(content);
+        if (config && Array.isArray(config.proxies)) {
+          for (const proxy of config.proxies) {
+            nodes.push(JSON.stringify(proxy));
+          }
+          return nodes;
+        }
+      } catch (e2) {}
+    }
+  }
+  
+  // 按行解析 URI
+  const lines = content.split(/[\r\n]+/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.startsWith('vmess://') || 
+        trimmed.startsWith('vless://') ||
+        trimmed.startsWith('trojan://') || 
+        trimmed.startsWith('ss://') || 
+        trimmed.startsWith('ssr://') ||
+        trimmed.startsWith('hysteria://') ||
+        trimmed.startsWith('hysteria2://') ||
+        trimmed.startsWith('hy://') ||
+        trimmed.startsWith('hy2://') ||
+        trimmed.startsWith('tuic://') ||
+        trimmed.startsWith('wireguard://') ||
+        trimmed.startsWith('wg://')) {
+      nodes.push(trimmed);
+    }
+  }
+  
+  return nodes;
+}
+
 // 将节点转换为Clash配置
 function convertToClash(nodes) {
   const config = {
@@ -467,66 +530,78 @@ function mergeConfigs(configs) {
 }
 
 export default async function handler(req, res) {
-  const { urls } = req.query;
+  const { urls, content, format } = req.query;
   
   // 验证请求参数
-  if (!urls) {
+  if (!urls && !content) {
     return res.status(400).json({ 
       success: false, 
       error: '参数错误',
-      message: '请提供至少一个订阅链接 (urls 参数)' 
+      message: '请提供 urls 参数（订阅链接）或 content 参数（直接节点内容）' 
     });
   }
   
-  // 解析URL列表 
-  const urlList = urls.split(',').filter(Boolean);
-  if (urlList.length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      error: '参数错误',
-      message: '请提供至少一个有效的订阅链接'
-    });
-  }
-  
-  console.log(`处理 ${urlList.length} 个订阅链接`);
+  console.log(`处理请求: urls=${urls ? 'yes' : 'no'}, content=${content ? 'yes' : 'no'}`);
 
   // 存储处理结果和错误
   const results = [];
   const allNodes = [];
   const allConfigs = [];
   
-  // 处理所有订阅链接
-  for (const url of urlList) {
+  // 处理直接内容
+  if (content) {
     try {
-      console.log(`解析订阅: ${url}`);
-      const result = await parseSubscription(url);
+      const decoded = decodeURIComponent(content);
+      console.log('解析直接内容...');
       
-      if (result.success) {
-        if (result.nodes && result.nodes.length > 0) {
-          allNodes.push(...result.nodes);
-        }
-        if (result.config) {
-          allConfigs.push(result.config);
-        }
-        console.log(`从订阅链接获取了 ${result.nodeCount} 个节点`);
-      } else {
-        console.log(`获取订阅内容失败: ${result.error}`);
+      // 解析内容
+      const parsedNodes = parseDirectContent(decoded);
+      if (parsedNodes.length > 0) {
+        allNodes.push(...parsedNodes);
+        console.log(`从直接内容解析了 ${parsedNodes.length} 个节点`);
       }
-      
-      results.push({
-        url,
-        success: result.success,
-        nodeCount: result.nodeCount,
-        error: result.error
-      });
     } catch (error) {
-      console.error(`处理订阅时出错: ${error.message}`);
-      results.push({
-        url,
-        success: false,
-        nodeCount: 0,
-        error: error.message
-      });
+      console.error(`解析直接内容失败: ${error.message}`);
+    }
+  }
+  
+  // 处理 URL 订阅
+  if (urls) {
+    const urlList = urls.split(',').filter(Boolean);
+    console.log(`处理 ${urlList.length} 个订阅链接`);
+    
+    for (const url of urlList) {
+      try {
+        console.log(`解析订阅: ${url}`);
+        const result = await parseSubscription(url);
+        
+        if (result.success) {
+          if (result.nodes && result.nodes.length > 0) {
+            allNodes.push(...result.nodes);
+          }
+          if (result.config) {
+            allConfigs.push(result.config);
+          }
+          console.log(`从订阅链接获取了 ${result.nodeCount} 个节点`);
+        } else {
+          console.log(`获取订阅内容失败: ${result.error}`);
+        }
+        
+        results.push({
+          url,
+          success: result.success,
+          nodeCount: result.nodeCount,
+          error: result.error
+        });
+      } catch (error) {
+        console.error(`处理订阅时出错: ${error.message}`);
+        results.push({
+          url,
+          success: false,
+          nodeCount: 0,
+          error: error.message
+        });
+      }
     }
   }
   

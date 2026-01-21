@@ -7,6 +7,7 @@ export default function Home() {
   const [mergeUrl, setMergeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [directContent, setDirectContent] = useState(false);
   const textAreaRef = useRef(null);
 
   const formatOptions = [
@@ -15,31 +16,74 @@ export default function Home() {
     { value: 'base64', label: 'Base64 (通用)', api: '/api/merge' },
   ];
 
+  // 检测是否为直接内容（非 URL）
+  const isDirectContent = (text) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return false;
+    
+    // 检查是否全部是 URL
+    const urlPattern = /^https?:\/\//i;
+    const allUrls = lines.every(line => urlPattern.test(line));
+    if (allUrls) return false;
+    
+    // 检查是否包含节点 URI 或 Base64 内容
+    const nodePatterns = /^(vmess|vless|trojan|ss|ssr|hysteria2?|hy2?|tuic|wireguard|wg):\/\//i;
+    const hasNodes = lines.some(line => nodePatterns.test(line));
+    if (hasNodes) return true;
+    
+    // 检查是否为 Base64（长字符串，无空格，可能包含 = 结尾）
+    const base64Pattern = /^[A-Za-z0-9+/=]{50,}$/;
+    if (lines.length === 1 && base64Pattern.test(lines[0].replace(/\s/g, ''))) {
+      return true;
+    }
+    
+    // 检查是否为 YAML/JSON 配置
+    if (text.includes('proxies:') || text.includes('"proxies"')) {
+      return true;
+    }
+    
+    return false;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
     if (!urls.trim()) {
-      alert('请至少输入一个订阅链接');
+      alert('请输入订阅链接或节点内容');
       return;
     }
     
-    // 清理和分割链接
-    const urlList = urls.split('\n')
-      .map(url => url.trim())
-      .filter(Boolean);
+    const input = urls.trim();
+    const isDirect = isDirectContent(input);
+    setDirectContent(isDirect);
     
-    if (urlList.length === 0) {
-      alert('没有有效的订阅链接');
-      return;
-    }
-    
-    // 构建API URL
-    const encodedUrls = encodeURIComponent(urlList.join(','));
     let apiUrl;
-    if (format === 'singbox') {
-      apiUrl = `/api/singbox?urls=${encodedUrls}`;
+    
+    if (isDirect) {
+      // 直接内容模式 - 使用 content 参数
+      const encodedContent = encodeURIComponent(input);
+      if (format === 'singbox') {
+        apiUrl = `/api/singbox?content=${encodedContent}`;
+      } else {
+        apiUrl = `/api/merge?content=${encodedContent}&format=${format}`;
+      }
     } else {
-      apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
+      // URL 模式
+      const urlList = input.split('\n')
+        .map(url => url.trim())
+        .filter(Boolean);
+      
+      if (urlList.length === 0) {
+        alert('没有有效的内容');
+        return;
+      }
+      
+      const encodedUrls = encodeURIComponent(urlList.join(','));
+      if (format === 'singbox') {
+        apiUrl = `/api/singbox?urls=${encodedUrls}`;
+      } else {
+        apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
+      }
     }
     
     setMergeUrl(apiUrl);
@@ -130,7 +174,7 @@ export default function Home() {
                     <form onSubmit={handleSubmit}>
                       <div className="mb-6">
                         <label htmlFor="urls" className="block text-sm font-medium text-neutral-700 mb-2">
-                          请在下方粘贴您的订阅链接，每行一个
+                          粘贴订阅链接或直接粘贴节点内容
                         </label>
                         <textarea
                           id="urls"
@@ -139,7 +183,7 @@ export default function Home() {
                           onChange={(e) => setUrls(e.target.value)}
                           className="input min-h-[180px] bg-neutral-50/50 font-mono text-sm"
                           rows="6"
-                          placeholder={"例如：\nhttps://example1.com/sub\nhttps://example2.com/sub\n\n支持多种协议和格式 <3"}
+                          placeholder={"支持以下格式：\n\n1. 订阅链接（每行一个）\nhttps://example.com/sub\n\n2. 节点 URI\nvmess://xxx\nvless://xxx\n\n3. Base64 编码内容\n\n4. Clash YAML 配置"}
                           required
                         ></textarea>
                         <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
