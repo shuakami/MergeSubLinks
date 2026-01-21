@@ -35,8 +35,6 @@ export default function Home() {
     
     // 构建API URL
     const encodedUrls = encodeURIComponent(urlList.join(','));
-    const selectedFormat = formatOptions.find(f => f.value === format);
-    
     let apiUrl;
     if (format === 'singbox') {
       apiUrl = `/api/singbox?urls=${encodedUrls}`;
@@ -150,34 +148,6 @@ export default function Home() {
                         </p>
                       </div>
 
-                      {/* 输出格式选择 */}
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-neutral-700 mb-3">
-                          选择输出格式
-                        </label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {formatOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => setFormat(option.value)}
-                              className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                                format === option.value
-                                  ? 'bg-primary-500 text-white shadow-md shadow-primary-500/25'
-                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-xs text-neutral-500">
-                          {format === 'singbox' && '适用于 sing-box 客户端，输出完整 JSON 配置'}
-                          {format === 'clash' && '适用于 Clash / Clash.Meta / Stash 等客户端'}
-                          {format === 'base64' && '通用 Base64 格式，兼容大多数客户端'}
-                        </p>
-                      </div>
-
                       <div className="flex space-x-3">
                         <button
                           type="submit"
@@ -186,16 +156,32 @@ export default function Home() {
                           <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
-                          生成我的合并链接
+                          生成合并链接
                         </button>
+                        <select
+                          value={format}
+                          onChange={(e) => setFormat(e.target.value)}
+                          className="px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 text-sm font-medium border-0 cursor-pointer hover:bg-neutral-200 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        >
+                          {formatOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                         <button
                           type="button"
                           onClick={handleClear}
                           className="btn btn-secondary"
                         >
-                          清空内容
+                          清空
                         </button>
                       </div>
+                      <p className="mt-3 text-xs text-neutral-400 text-center">
+                        {format === 'singbox' && '输出 sing-box JSON 配置'}
+                        {format === 'clash' && '输出 Clash YAML 配置'}
+                        {format === 'base64' && '输出 Base64 通用格式'}
+                      </p>
                     </form>
                   </div>
                 </div>
