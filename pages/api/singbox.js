@@ -1262,8 +1262,10 @@ function generateSingBoxConfig(proxies, options = {}) {
         type: 'tun',
         tag: 'tun-in',
         interface_name: 'sing-box',
-        inet4_address: '172.19.0.1/30',
-        inet6_address: 'fdfe:dcba:9876::1/126',
+        address: [
+          '172.19.0.1/30',
+          'fdfe:dcba:9876::1/126'
+        ],
         mtu: 9000,
         auto_route: true,
         strict_route: true,
@@ -1299,7 +1301,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       },
       // 所有代理节点
       ...outbounds,
-      // 直连 (sing-box 1.11+ 格式)
+      // 直连
       {
         type: 'direct',
         tag: 'direct'
@@ -1314,7 +1316,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       rules: [
         {
           protocol: 'dns',
-          outbound: 'dns-out'
+          action: 'hijack-dns'
         },
         {
           ip_is_private: true,
