@@ -1247,12 +1247,18 @@ function generateSingBoxConfig(proxies, options = {}) {
         {
           tag: 'dns-remote',
           address: 'https://1.1.1.1/dns-query',
-          address_resolver: 'dns-direct',
+          address_resolver: 'dns-local',
           detour: 'proxy'
         },
         {
           tag: 'dns-direct',
           address: 'https://223.5.5.5/dns-query',
+          address_resolver: 'dns-local',
+          detour: 'direct'
+        },
+        {
+          tag: 'dns-local',
+          address: '223.5.5.5',
           detour: 'direct'
         },
         {
@@ -1263,7 +1269,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       rules: [
         {
           outbound: 'any',
-          server: 'dns-direct'
+          server: 'dns-local'
         }
       ],
       final: 'dns-remote',
