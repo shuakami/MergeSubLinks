@@ -1284,25 +1284,24 @@ function generateSingBoxConfig(proxies, options = {}) {
       {
         type: 'tun',
         tag: 'tun-in',
-        interface_name: 'sing-box',
+        interface_name: 'tun0',
         address: [
           '172.19.0.1/30',
           'fdfe:dcba:9876::1/126'
         ],
         mtu: 9000,
         auto_route: true,
-        strict_route: true,
-        stack: 'system',
+        strict_route: false,
+        stack: 'mixed',
         sniff: true,
-        sniff_override_destination: true
+        sniff_override_destination: false
       },
       {
         type: 'mixed',
         tag: 'mixed-in',
         listen: '127.0.0.1',
         listen_port: 7890,
-        sniff: true,
-        sniff_override_destination: true
+        sniff: true
       }
     ],
     outbounds: [
@@ -1334,7 +1333,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       rules: [
         {
           protocol: 'dns',
-          outbound: 'direct'
+          action: 'hijack-dns'
         },
         {
           ip_is_private: true,
@@ -1355,14 +1354,14 @@ function generateSingBoxConfig(proxies, options = {}) {
           type: 'remote',
           format: 'binary',
           url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs',
-          download_detour: 'direct'
+          download_detour: 'proxy'
         },
         {
           tag: 'geoip-cn',
           type: 'remote',
           format: 'binary',
           url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs',
-          download_detour: 'direct'
+          download_detour: 'proxy'
         }
       ],
       final: 'proxy',
