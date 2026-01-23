@@ -1246,13 +1246,13 @@ function generateSingBoxConfig(proxies, options = {}) {
       servers: [
         {
           tag: 'dns-remote',
-          address: 'https://1.1.1.1/dns-query',
+          address: 'tls://1.1.1.1',
           address_resolver: 'dns-local',
           detour: 'proxy'
         },
         {
           tag: 'dns-direct',
-          address: 'https://223.5.5.5/dns-query',
+          address: 'tls://223.5.5.5',
           address_resolver: 'dns-local',
           detour: 'direct'
         },
@@ -1270,10 +1270,15 @@ function generateSingBoxConfig(proxies, options = {}) {
         {
           outbound: 'any',
           server: 'dns-local'
+        },
+        {
+          domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
+          server: 'dns-local'
         }
       ],
       final: 'dns-remote',
-      strategy: 'prefer_ipv4'
+      strategy: 'prefer_ipv4',
+      independent_cache: true
     },
     inbounds: [
       {
@@ -1329,7 +1334,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       rules: [
         {
           protocol: 'dns',
-          action: 'hijack-dns'
+          outbound: 'direct'
         },
         {
           ip_is_private: true,
