@@ -1360,11 +1360,12 @@ function generateSingBoxConfig(proxies, options = {}) {
     ],
     route: {
       rules: [
-        {
+        // 使用 DoT 时：不劫持 DNS，放行 853 端口，让系统 Private DNS 工作
+        ...(useDot ? [] : [{
           protocol: 'dns',
           action: 'hijack-dns'
-        },
-        // 使用 DoT 时放行 853 端口
+        }]),
+        // 放行 853 端口 (DoT)
         ...(useDot ? [{
           port: 853,
           outbound: 'direct'

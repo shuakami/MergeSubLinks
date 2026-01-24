@@ -230,18 +230,19 @@ export default function Home() {
                       
                       {format === 'singbox' && (
                         <div className="mt-4 pt-4 border-t border-neutral-100">
-                          <label className="block text-sm font-medium text-neutral-700 mb-2">
-                            自定义 DNS (DoT)
+                          <label className="flex items-center cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={!!dotServer}
+                              onChange={(e) => setDotServer(e.target.checked ? 'system' : '')}
+                              className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
+                            />
+                            <span className="ml-2 text-sm text-neutral-600 group-hover:text-neutral-800">
+                              兼容系统 Private DNS
+                            </span>
                           </label>
-                          <input
-                            type="text"
-                            value={dotServer}
-                            onChange={(e) => setDotServer(e.target.value)}
-                            placeholder="如 dns.google 或 1.1.1.1"
-                            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                          />
-                          <p className="mt-1.5 text-xs text-neutral-400">
-                            留空使用默认 DoH，填写后将使用 DoT (853端口) 并自动放行
+                          <p className="mt-1.5 text-xs text-neutral-400 ml-6">
+                            不劫持 DNS，放行 853 端口，让系统 Private DNS 正常工作
                           </p>
                         </div>
                       )}
