@@ -1246,13 +1246,13 @@ function generateSingBoxConfig(proxies, options = {}) {
       servers: [
         {
           tag: 'dns-remote',
-          address: 'tls://1.1.1.1',
+          address: 'https://8.8.8.8/dns-query',
           address_resolver: 'dns-local',
           detour: 'proxy'
         },
         {
           tag: 'dns-direct',
-          address: 'tls://223.5.5.5',
+          address: 'https://223.5.5.5/dns-query',
           address_resolver: 'dns-local',
           detour: 'direct'
         },
@@ -1272,12 +1272,15 @@ function generateSingBoxConfig(proxies, options = {}) {
           server: 'dns-local'
         },
         {
-          domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
-          server: 'dns-local'
+          rule_set: 'geosite-cn',
+          server: 'dns-direct'
         }
       ],
       final: 'dns-remote',
-      strategy: 'prefer_ipv4',
+      strategy: 'ipv4_only',
+      disable_cache: false,
+      disable_expire: false
+    },
       independent_cache: true
     },
     inbounds: [
@@ -1334,6 +1337,11 @@ function generateSingBoxConfig(proxies, options = {}) {
         {
           protocol: 'dns',
           action: 'hijack-dns'
+        },
+        // 兼容 Android Private DNS (DoT 853端口) - 直接放行
+        {
+          port: 853,
+          outbound: 'direct'
         },
         {
           ip_is_private: true,
