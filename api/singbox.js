@@ -1241,7 +1241,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       tag: 'dns-direct',
       address: `tls://${dotAddr}`,
       address_resolver: 'dns-local',
-      detour: 'direct'
+      detour: 'proxy'  // DoT 服务器可能在国外，需要走代理
     },
     {
       tag: 'dns-local',
