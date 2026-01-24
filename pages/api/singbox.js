@@ -1239,7 +1239,7 @@ function generateSingBoxConfig(proxies, options = {}) {
     },
     {
       tag: 'dns-direct',
-      address: 'tls://223.5.5.5',
+      address: `tls://${dotAddr}`,
       address_resolver: 'dns-local',
       detour: 'direct'
     },
