@@ -1225,6 +1225,57 @@ function generateSingBoxConfig(proxies, options = {}) {
   }
   
   // 构建完整配置 (sing-box 1.11+ 格式)
+  // 根据 dotServer 参数决定 DNS 配置
+  const useDot = !!options.dotServer;
+  const dotAddr = options.dotServer || '1.1.1.1';
+  
+  // DNS 服务器配置
+  const dnsServers = useDot ? [
+    {
+      tag: 'dns-remote',
+      address: `tls://${dotAddr}`,
+      address_resolver: 'dns-local',
+      detour: 'proxy'
+    },
+    {
+      tag: 'dns-direct',
+      address: 'tls://223.5.5.5',
+      address_resolver: 'dns-local',
+      detour: 'direct'
+    },
+    {
+      tag: 'dns-local',
+      address: '223.5.5.5',
+      detour: 'direct'
+    },
+    {
+      tag: 'dns-block',
+      address: 'rcode://success'
+    }
+  ] : [
+    {
+      tag: 'dns-remote',
+      address: 'https://1.1.1.1/dns-query',
+      address_resolver: 'dns-local',
+      detour: 'proxy'
+    },
+    {
+      tag: 'dns-direct',
+      address: 'https://223.5.5.5/dns-query',
+      address_resolver: 'dns-local',
+      detour: 'direct'
+    },
+    {
+      tag: 'dns-local',
+      address: '223.5.5.5',
+      detour: 'direct'
+    },
+    {
+      tag: 'dns-block',
+      address: 'rcode://success'
+    }
+  ];
+  
   const config = {
     log: {
       level: 'info',
@@ -1243,44 +1294,19 @@ function generateSingBoxConfig(proxies, options = {}) {
       }
     },
     dns: {
-      servers: [
-        {
-          tag: 'dns-remote',
-          address: 'https://8.8.8.8/dns-query',
-          address_resolver: 'dns-local',
-          detour: 'proxy'
-        },
-        {
-          tag: 'dns-direct',
-          address: 'https://223.5.5.5/dns-query',
-          address_resolver: 'dns-local',
-          detour: 'direct'
-        },
-        {
-          tag: 'dns-local',
-          address: '223.5.5.5',
-          detour: 'direct'
-        },
-        {
-          tag: 'dns-block',
-          address: 'rcode://success'
-        }
-      ],
+      servers: dnsServers,
       rules: [
         {
           outbound: 'any',
           server: 'dns-local'
         },
         {
-          rule_set: 'geosite-cn',
-          server: 'dns-direct'
+          domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
+          server: 'dns-local'
         }
       ],
       final: 'dns-remote',
-      strategy: 'ipv4_only',
-      disable_cache: false,
-      disable_expire: false
-    },
+      strategy: 'prefer_ipv4',
       independent_cache: true
     },
     inbounds: [
@@ -1338,11 +1364,11 @@ function generateSingBoxConfig(proxies, options = {}) {
           protocol: 'dns',
           action: 'hijack-dns'
         },
-        // 兼容 Android Private DNS (DoT 853端口) - 直接放行
-        {
+        // 使用 DoT 时放行 853 端口
+        ...(useDot ? [{
           port: 853,
           outbound: 'direct'
-        },
+        }] : []),
         {
           ip_is_private: true,
           outbound: 'direct'
@@ -1398,7 +1424,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
   
-  const { urls, url, content, outboundsOnly } = req.query;
+  const { urls, url, content, outboundsOnly, dotServer } = req.query;
   
   // 验证参数
   const urlList = (urls || url || '').split(',').filter(Boolean).map(u => u.trim());
@@ -1455,7 +1481,8 @@ export default async function handler(req, res) {
     
     // 生成 sing-box 配置
     const config = generateSingBoxConfig(allProxies, {
-      outboundsOnly: outboundsOnly === 'true' || outboundsOnly === '1'
+      outboundsOnly: outboundsOnly === 'true' || outboundsOnly === '1',
+      dotServer: dotServer ? decodeURIComponent(dotServer) : null
     });
     
     // 统计信息

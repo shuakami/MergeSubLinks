@@ -7,7 +7,7 @@ export default function Home() {
   const [mergeUrl, setMergeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [directContent, setDirectContent] = useState(false);
+  const [dotServer, setDotServer] = useState('');
   const textAreaRef = useRef(null);
 
   const formatOptions = [
@@ -55,7 +55,6 @@ export default function Home() {
     
     const input = urls.trim();
     const isDirect = isDirectContent(input);
-    setDirectContent(isDirect);
     
     let apiUrl;
     
@@ -64,6 +63,7 @@ export default function Home() {
       const encodedContent = encodeURIComponent(input);
       if (format === 'singbox') {
         apiUrl = `/api/singbox?content=${encodedContent}`;
+        if (dotServer.trim()) apiUrl += `&dotServer=${encodeURIComponent(dotServer.trim())}`;
       } else {
         apiUrl = `/api/merge?content=${encodedContent}&format=${format}`;
       }
@@ -81,6 +81,7 @@ export default function Home() {
       const encodedUrls = encodeURIComponent(urlList.join(','));
       if (format === 'singbox') {
         apiUrl = `/api/singbox?urls=${encodedUrls}`;
+        if (dotServer.trim()) apiUrl += `&dotServer=${encodeURIComponent(dotServer.trim())}`;
       } else {
         apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
       }
@@ -226,6 +227,24 @@ export default function Home() {
                         {format === 'clash' && '输出 Clash YAML 配置'}
                         {format === 'base64' && '输出 Base64 通用格式'}
                       </p>
+                      
+                      {format === 'singbox' && (
+                        <div className="mt-4 pt-4 border-t border-neutral-100">
+                          <label className="block text-sm font-medium text-neutral-700 mb-2">
+                            自定义 DNS (DoT)
+                          </label>
+                          <input
+                            type="text"
+                            value={dotServer}
+                            onChange={(e) => setDotServer(e.target.value)}
+                            placeholder="如 dns.google 或 1.1.1.1"
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                          />
+                          <p className="mt-1.5 text-xs text-neutral-400">
+                            留空使用默认 DoH，填写后将使用 DoT (853端口) 并自动放行
+                          </p>
+                        </div>
+                      )}
                     </form>
                   </div>
                 </div>
