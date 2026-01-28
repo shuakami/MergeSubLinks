@@ -1272,14 +1272,8 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   ];
   
-  // DNS 规则
+  // DNS 规则 (移除废弃的 outbound 规则)
   const dnsRules = [
-    // 代理服务器域名使用本地 DNS（防止循环依赖）
-    {
-      outbound: 'any',
-      action: 'route',
-      server: 'dns-local'
-    },
     // 反向解析使用本地
     {
       domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
@@ -1414,7 +1408,8 @@ function generateSingBoxConfig(proxies, options = {}) {
         }
       ],
       final: 'proxy',
-      auto_detect_interface: true
+      auto_detect_interface: true,
+      default_domain_resolver: 'dns-local'
     }
   };
   
