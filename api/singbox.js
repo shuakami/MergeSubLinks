@@ -1423,6 +1423,11 @@ function generateSingBoxConfig(proxies, options = {}) {
           protocol: 'dns',
           action: 'hijack-dns'
         },
+        // GitHub 强制走代理
+        {
+          domain_suffix: ['github.com', 'githubusercontent.com', 'githubassets.com', 'github.io'],
+          outbound: 'proxy'
+        },
         // NextDNS 直连（保持 Anycast 最优解析）
         {
           domain_suffix: ['nextdns.io'],
