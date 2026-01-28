@@ -1232,6 +1232,7 @@ function generateSingBoxConfig(proxies, options = {}) {
   let dohHost = '';
   let dohPort = 443;
   let dohPath = '/dns-query';
+  let dohSni = '';  // TLS SNI，用于 IP 直连时
   if (useDoh) {
     let dohAddr = dohServer.trim();
     // 移除协议前缀
@@ -1252,7 +1253,33 @@ function generateSingBoxConfig(proxies, options = {}) {
     } else {
       dohHost = dohAddr;
     }
+    
+    // NextDNS 特殊处理：使用 Anycast IP 避免域名解析循环
+    if (dohHost.includes('nextdns.io')) {
+      dohSni = dohHost;  // 保存原域名作为 SNI
+      dohHost = '45.90.28.0';  // 使用 NextDNS Anycast IP
+    }
   }
+  
+  // 构建 DoH 服务器配置
+  const buildDohServer = () => {
+    const server = {
+      type: 'https',
+      tag: 'dns-remote',
+      server: dohHost,
+      server_port: dohPort,
+      path: dohPath,
+      detour: 'proxy'
+    };
+    // 如果使用 IP 直连，需要设置 TLS SNI
+    if (dohSni) {
+      server.tls = {
+        enabled: true,
+        server_name: dohSni
+      };
+    }
+    return server;
+  };
   
   // DNS 服务器配置 (sing-box 1.12+ 新格式)
   const dnsServers = useDoh ? [
@@ -1269,15 +1296,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       server_port: 53
     },
     // 代理 DNS (DoH/H3) - 用户自定义
-    {
-      type: 'https',
-      tag: 'dns-remote',
-      server: dohHost,
-      server_port: dohPort,
-      path: dohPath,
-      domain_resolver: 'dns-local',
-      detour: 'proxy'
-    }
+    buildDohServer()
   ] : [
     // 本地 DNS - 用于解析 DNS 服务器域名 (系统 DNS)
     {
