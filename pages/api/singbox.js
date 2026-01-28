@@ -1224,61 +1224,55 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   }
   
-  // 构建完整配置 (sing-box 1.12+ 新格式)
-  // 解析用户输入的 DoH URL
-  let dohServer = '1.1.1.1';
-  let dohPath = '/dns-query';
+  // 构建完整配置 (使用 Legacy DNS 格式确保兼容性)
+  // 解析用户输入的 DoT 服务器
+  let dotServer = options.dotServer || '';
+  const useDot = !!dotServer;
   
-  if (options.dotServer) {
-    // 支持完整 URL 格式: https://dns.nextdns.io/xxx 或纯域名: dns.nextdns.io
-    let input = options.dotServer;
-    if (input.startsWith('https://')) {
-      try {
-        const url = new URL(input);
-        dohServer = url.hostname;
-        dohPath = url.pathname || '/dns-query';
-      } catch (e) {
-        dohServer = input.replace('https://', '').split('/')[0];
-      }
-    } else if (input.startsWith('tls://')) {
-      dohServer = input.replace('tls://', '').split('/')[0];
-    } else {
-      dohServer = input.split('/')[0];
-      if (input.includes('/')) {
-        dohPath = '/' + input.split('/').slice(1).join('/');
-      }
-    }
-  }
-  
-  const hasCustomDns = !!options.dotServer;
-  
-  // DNS 服务器配置 (sing-box 1.12+ 新格式，使用 HTTP/3)
-  const dnsServers = [
-    // 本地 DNS - 用于解析 DNS 服务器域名
+  // DNS 服务器配置 (Legacy 格式 - 兼容性最好)
+  const dnsServers = useDot ? [
+    // 本地 DNS - 用于解析 DNS 服务器域名 (纯 IP)
     {
-      type: 'local',
-      tag: 'dns-local'
+      tag: 'dns-local',
+      address: '223.5.5.5',
+      detour: 'direct'
     },
-    // 国内 DNS (DoH3)
+    // 国内 DNS (DoT)
     {
-      type: 'h3',
       tag: 'dns-direct',
-      server: '223.5.5.5',
-      server_port: 443,
-      path: '/dns-query'
+      address: 'tls://223.5.5.5',
+      detour: 'direct'
     },
-    // 代理 DNS (DoH3) - 用户自定义或默认
+    // 代理 DNS (DoT) - 用户自定义
     {
-      type: 'h3',
       tag: 'dns-remote',
-      server: dohServer,
-      server_port: 443,
-      path: dohPath,
+      address: `tls://${dotServer}`,
+      address_resolver: 'dns-local',
+      detour: 'proxy'
+    }
+  ] : [
+    // 本地 DNS - 用于解析 DNS 服务器域名 (纯 IP)
+    {
+      tag: 'dns-local',
+      address: '223.5.5.5',
+      detour: 'direct'
+    },
+    // 国内 DNS (DoH)
+    {
+      tag: 'dns-direct',
+      address: 'https://223.5.5.5/dns-query',
+      detour: 'direct'
+    },
+    // 代理 DNS (DoH)
+    {
+      tag: 'dns-remote',
+      address: 'https://1.1.1.1/dns-query',
+      address_resolver: 'dns-local',
       detour: 'proxy'
     }
   ];
   
-  // DNS 规则 (sing-box 1.12+)
+  // DNS 规则
   const dnsRules = [
     // 反向解析使用本地
     {
@@ -1412,8 +1406,7 @@ function generateSingBoxConfig(proxies, options = {}) {
         }
       ],
       final: 'proxy',
-      auto_detect_interface: true,
-      default_domain_resolver: 'dns-local'
+      auto_detect_interface: true
     }
   };
   
