@@ -1229,17 +1229,29 @@ function generateSingBoxConfig(proxies, options = {}) {
   let dotServer = options.dotServer || '';
   const useDot = !!dotServer;
   
-  // 解析 DoT 服务器地址 (支持 tls://host 或纯 host 格式)
-  let dotHost = '';
-  let dotPort = 853;
+  // 解析 DoH 服务器地址 (支持完整 URL 或纯域名)
+  let dohHost = '';
+  let dohPort = 443;
+  let dohPath = '/dns-query';
   if (useDot) {
-    let dotAddr = dotServer.replace(/^tls:\/\//, '');
-    if (dotAddr.includes(':')) {
-      const parts = dotAddr.split(':');
-      dotHost = parts[0];
-      dotPort = parseInt(parts[1], 10) || 853;
+    let dohAddr = dotServer.trim();
+    // 移除协议前缀
+    dohAddr = dohAddr.replace(/^https?:\/\//, '');
+    
+    // 解析路径
+    const pathIndex = dohAddr.indexOf('/');
+    if (pathIndex !== -1) {
+      dohPath = dohAddr.substring(pathIndex);
+      dohAddr = dohAddr.substring(0, pathIndex);
+    }
+    
+    // 解析端口
+    if (dohAddr.includes(':')) {
+      const parts = dohAddr.split(':');
+      dohHost = parts[0];
+      dohPort = parseInt(parts[1], 10) || 443;
     } else {
-      dotHost = dotAddr;
+      dohHost = dohAddr;
     }
   }
   
@@ -1257,12 +1269,13 @@ function generateSingBoxConfig(proxies, options = {}) {
       server: '119.29.29.29',
       server_port: 53
     },
-    // 代理 DNS (DoT) - 用户自定义
+    // 代理 DNS (DoH/H3) - 用户自定义
     {
-      type: 'tls',
+      type: 'https',
       tag: 'dns-remote',
-      server: dotHost,
-      server_port: dotPort,
+      server: dohHost,
+      server_port: dohPort,
+      path: dohPath,
       domain_resolver: 'dns-local'
     }
   ] : [
