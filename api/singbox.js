@@ -1225,56 +1225,60 @@ function generateSingBoxConfig(proxies, options = {}) {
   }
   
   // 构建完整配置 (sing-box 1.12+ 新格式)
-  // 根据 dotServer 参数决定 DNS 配置
-  const useDot = !!options.dotServer;
-  const dotAddr = options.dotServer || '1.1.1.1';
+  // 解析用户输入的 DoH URL
+  let dohServer = '1.1.1.1';
+  let dohPath = '/dns-query';
   
-  // DNS 服务器配置 (sing-box 1.12+ 新格式)
-  const dnsServers = useDot ? [
-    // 本地 DNS - 用于解析 DNS 服务器域名
-    {
-      type: 'local',
-      tag: 'dns-local'
-    },
-    // 国内 DNS (DoT)
-    {
-      type: 'tls',
-      tag: 'dns-direct',
-      server: '223.5.5.5',
-      server_port: 853
-    },
-    // 代理 DNS (DoT) - 用户自定义
-    {
-      type: 'tls',
-      tag: 'dns-remote',
-      server: dotAddr,
-      server_port: 853,
-      detour: 'proxy'
+  if (options.dotServer) {
+    // 支持完整 URL 格式: https://dns.nextdns.io/xxx 或纯域名: dns.nextdns.io
+    let input = options.dotServer;
+    if (input.startsWith('https://')) {
+      try {
+        const url = new URL(input);
+        dohServer = url.hostname;
+        dohPath = url.pathname || '/dns-query';
+      } catch (e) {
+        dohServer = input.replace('https://', '').split('/')[0];
+      }
+    } else if (input.startsWith('tls://')) {
+      dohServer = input.replace('tls://', '').split('/')[0];
+    } else {
+      dohServer = input.split('/')[0];
+      if (input.includes('/')) {
+        dohPath = '/' + input.split('/').slice(1).join('/');
+      }
     }
-  ] : [
+  }
+  
+  const hasCustomDns = !!options.dotServer;
+  
+  // DNS 服务器配置 (sing-box 1.12+ 新格式，使用 HTTP/3)
+  const dnsServers = [
     // 本地 DNS - 用于解析 DNS 服务器域名
     {
       type: 'local',
       tag: 'dns-local'
     },
-    // 国内 DNS (DoH)
+    // 国内 DNS (DoH3)
     {
-      type: 'https',
+      type: 'h3',
       tag: 'dns-direct',
       server: '223.5.5.5',
-      server_port: 443
-    },
-    // 代理 DNS (DoH)
-    {
-      type: 'https',
-      tag: 'dns-remote',
-      server: '1.1.1.1',
       server_port: 443,
+      path: '/dns-query'
+    },
+    // 代理 DNS (DoH3) - 用户自定义或默认
+    {
+      type: 'h3',
+      tag: 'dns-remote',
+      server: dohServer,
+      server_port: 443,
+      path: dohPath,
       detour: 'proxy'
     }
   ];
   
-  // DNS 规则 (sing-box 1.12+ 移除 outbound 项)
+  // DNS 规则 (sing-box 1.12+)
   const dnsRules = [
     // 反向解析使用本地
     {
@@ -1375,11 +1379,6 @@ function generateSingBoxConfig(proxies, options = {}) {
           protocol: 'dns',
           action: 'hijack-dns'
         },
-        // 使用 DoT 时放行 853 端口
-        ...(useDot ? [{
-          port: 853,
-          outbound: 'direct'
-        }] : []),
         // 私有 IP 直连
         {
           ip_is_private: true,
@@ -1439,7 +1438,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
   
-  const { urls, url, content, outboundsOnly, dotServer } = req.query;
+  const { urls, url, content, outboundsOnly, dohServer } = req.query;
   
   // 验证参数
   const urlList = (urls || url || '').split(',').filter(Boolean).map(u => u.trim());
@@ -1497,7 +1496,7 @@ export default async function handler(req, res) {
     // 生成 sing-box 配置
     const config = generateSingBoxConfig(allProxies, {
       outboundsOnly: outboundsOnly === 'true' || outboundsOnly === '1',
-      dotServer: dotServer ? decodeURIComponent(dotServer) : null
+      dotServer: dohServer ? decodeURIComponent(dohServer) : null
     });
     
     // 统计信息
