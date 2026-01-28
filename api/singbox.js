@@ -1366,10 +1366,7 @@ function generateSingBoxConfig(proxies, options = {}) {
           type: 'fakeip',
           tag: 'dns-fakeip',
           inet4_range: '198.18.0.0/15',
-          inet6_range: 'fc00::/18',
-          lifecycle: {
-            reset_interval: '1h'
-          }
+          inet6_range: 'fc00::/18'
         }
       ],
       rules: dnsRules,
