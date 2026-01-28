@@ -1273,6 +1273,11 @@ function generateSingBoxConfig(proxies, options = {}) {
       outbound: 'any',
       server: 'dns_local'
     },
+    // NextDNS 域名强制本地解析（防止代理嗅探劫持）
+    {
+      domain_keyword: ['nextdns'],
+      server: 'dns_local'
+    },
     // 反向解析使用本地
     {
       domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
