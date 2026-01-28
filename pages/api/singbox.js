@@ -1275,7 +1275,8 @@ function generateSingBoxConfig(proxies, options = {}) {
       server: dohHost,
       server_port: dohPort,
       path: dohPath,
-      domain_resolver: 'dns-local'
+      domain_resolver: 'dns-local',
+      detour: 'proxy'
     }
   ] : [
     // 本地 DNS - 用于解析 DNS 服务器域名 (系统 DNS)
@@ -1297,7 +1298,8 @@ function generateSingBoxConfig(proxies, options = {}) {
       server: '1.1.1.1',
       server_port: 443,
       path: '/dns-query',
-      domain_resolver: 'dns-local'
+      domain_resolver: 'dns-local',
+      detour: 'proxy'
     }
   ];
   
