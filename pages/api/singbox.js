@@ -1322,17 +1322,22 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   ];
   
-  // DNS 规则
+  // DNS 规则 - FakeIP 模式
   const dnsRules = [
     // 反向解析使用本地
     {
-      domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
+      domain_suffix: ['in-addr.arpa', 'ip6.arpa'],
       server: 'dns-local'
     },
-    // 国内域名直连 DNS
+    // 国内域名使用真实 IP（直连 DNS）
     {
       rule_set: 'geosite-cn',
       server: 'dns-direct'
+    },
+    // 其他域名使用 FakeIP
+    {
+      query_type: ['A', 'AAAA'],
+      server: 'dns-fakeip'
     }
   ];
   
@@ -1350,11 +1355,23 @@ function generateSingBoxConfig(proxies, options = {}) {
       },
       cache_file: {
         enabled: true,
-        store_fakeip: false
+        store_fakeip: true
       }
     },
     dns: {
-      servers: dnsServers,
+      servers: [
+        ...dnsServers,
+        // FakeIP DNS 服务器
+        {
+          type: 'fakeip',
+          tag: 'dns-fakeip',
+          inet4_range: '198.18.0.0/15',
+          inet6_range: 'fc00::/18',
+          lifecycle: {
+            reset_interval: '1h'
+          }
+        }
+      ],
       rules: dnsRules,
       final: 'dns-remote',
       strategy: 'prefer_ipv4',
@@ -1372,10 +1389,10 @@ function generateSingBoxConfig(proxies, options = {}) {
         ],
         mtu: 9000,
         auto_route: true,
-        strict_route: false,
+        strict_route: true,
         stack: 'mixed',
         sniff: true,
-        sniff_override_destination: true
+        sniff_override_destination: false
       },
       {
         type: 'mixed',
@@ -1383,7 +1400,7 @@ function generateSingBoxConfig(proxies, options = {}) {
         listen: '127.0.0.1',
         listen_port: 7890,
         sniff: true,
-        sniff_override_destination: true
+        sniff_override_destination: false
       }
     ],
     outbounds: [
