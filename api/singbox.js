@@ -1277,16 +1277,19 @@ function generateSingBoxConfig(proxies, options = {}) {
     // 代理服务器域名使用本地 DNS（防止循环依赖）
     {
       outbound: 'any',
+      action: 'route',
       server: 'dns-local'
     },
     // 反向解析使用本地
     {
       domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
+      action: 'route',
       server: 'dns-local'
     },
     // 国内域名直连 DNS
     {
       rule_set: 'geosite-cn',
+      action: 'route',
       server: 'dns-direct'
     }
   ];
