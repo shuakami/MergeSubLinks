@@ -1274,6 +1274,11 @@ function generateSingBoxConfig(proxies, options = {}) {
   
   // DNS 规则
   const dnsRules = [
+    // 代理服务器域名使用本地 DNS（防止循环依赖）
+    {
+      outbound: 'any',
+      server: 'dns-local'
+    },
     // 反向解析使用本地
     {
       domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
