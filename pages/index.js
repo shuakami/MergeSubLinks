@@ -7,7 +7,8 @@ export default function Home() {
   const [mergeUrl, setMergeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [dotServer, setDotServer] = useState('');
+  const [enableDoh, setEnableDoh] = useState(false);
+  const [dohServer, setDohServer] = useState('');
   const textAreaRef = useRef(null);
 
   const formatOptions = [
@@ -63,7 +64,10 @@ export default function Home() {
       const encodedContent = encodeURIComponent(input);
       if (format === 'singbox') {
         apiUrl = `/api/singbox?content=${encodedContent}`;
-        if (dotServer.trim()) apiUrl += `&dotServer=${encodeURIComponent(dotServer.trim())}`;
+        if (enableDoh) {
+          apiUrl += '&enableDoh=1';
+          if (dohServer.trim()) apiUrl += `&dohServer=${encodeURIComponent(dohServer.trim())}`;
+        }
       } else {
         apiUrl = `/api/merge?content=${encodedContent}&format=${format}`;
       }
@@ -81,7 +85,10 @@ export default function Home() {
       const encodedUrls = encodeURIComponent(urlList.join(','));
       if (format === 'singbox') {
         apiUrl = `/api/singbox?urls=${encodedUrls}`;
-        if (dotServer.trim()) apiUrl += `&dotServer=${encodeURIComponent(dotServer.trim())}`;
+        if (enableDoh) {
+          apiUrl += '&enableDoh=1';
+          if (dohServer.trim()) apiUrl += `&dohServer=${encodeURIComponent(dohServer.trim())}`;
+        }
       } else {
         apiUrl = `/api/merge?urls=${encodedUrls}&format=${format}`;
       }
@@ -233,17 +240,32 @@ export default function Home() {
                           <label className="flex items-center cursor-pointer group">
                             <input
                               type="checkbox"
-                              checked={!!dotServer}
-                              onChange={(e) => setDotServer(e.target.checked ? 'system' : '')}
+                              checked={enableDoh}
+                              onChange={(e) => setEnableDoh(e.target.checked)}
                               className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0"
                             />
                             <span className="ml-2 text-sm text-neutral-600 group-hover:text-neutral-800">
-                              兼容系统 Private DNS
+                              启用 DoH (DNS over HTTPS)
                             </span>
                           </label>
                           <p className="mt-1.5 text-xs text-neutral-400 ml-6">
-                            不劫持 DNS，放行 853 端口，让系统 Private DNS 正常工作
+                            默认放行 853 端口兼容系统 Private DNS，启用后劫持 DNS 使用 DoH/H3
                           </p>
+                          
+                          {enableDoh && (
+                            <div className="mt-3 ml-6">
+                              <input
+                                type="text"
+                                value={dohServer}
+                                onChange={(e) => setDohServer(e.target.value)}
+                                placeholder="DoH 服务器（可选，如 dns.google 或 1.1.1.1）"
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                              />
+                              <p className="mt-1 text-xs text-neutral-400">
+                                留空使用默认 (8.8.8.8)，支持 HTTP/3 QUIC 协议
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </form>

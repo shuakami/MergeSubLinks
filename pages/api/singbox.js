@@ -1225,29 +1225,30 @@ function generateSingBoxConfig(proxies, options = {}) {
   }
   
   // 构建完整配置 (sing-box 1.12+ 格式)
-  // 根据 dotServer 参数决定 DNS 配置
-  const useDot = !!options.dotServer;
-  const dotAddr = options.dotServer || '1.1.1.1';
+  // 默认：不劫持 DNS，放行 853 端口，兼容系统 Private DNS
+  // 启用 DoH：劫持 DNS，使用 DoH/H3 协议
+  const useDoh = !!options.enableDoh;
+  const dohAddr = options.dohServer || '8.8.8.8';
   
   // DNS 服务器配置
-  const dnsServers = [
-    // 本地 DNS - 强制物理直连，用于解析 DNS 服务器域名
+  const dnsServers = useDoh ? [
+    // 本地 DNS - 用于解析 DNS 服务器域名
     {
       tag: 'dns_local',
       address: '223.5.5.5',
       detour: 'direct'
     },
-    // 国内 DNS
+    // 国内 DNS (DoH)
     {
       tag: 'dns_direct',
       address: 'https://223.5.5.5/dns-query',
       address_resolver: 'dns_local',
       detour: 'direct'
     },
-    // 代理 DNS
+    // 代理 DNS (DoH/H3)
     {
       tag: 'dns_proxy',
-      address: useDot ? `tls://${dotAddr}` : 'https://8.8.8.8/dns-query',
+      address: `h3://${dohAddr}/dns-query`,
       address_resolver: 'dns_local',
       detour: 'proxy'
     },
@@ -1256,18 +1257,20 @@ function generateSingBoxConfig(proxies, options = {}) {
       tag: 'dns_block',
       address: 'rcode://success'
     }
+  ] : [
+    // 仅本地 DNS，不劫持
+    {
+      tag: 'dns_local',
+      address: '223.5.5.5',
+      detour: 'direct'
+    }
   ];
   
   // DNS 规则
-  const dnsRules = [
+  const dnsRules = useDoh ? [
     // 出站连接使用本地 DNS（防止循环）
     {
       outbound: 'any',
-      server: 'dns_local'
-    },
-    // NextDNS 域名强制本地解析（防止代理嗅探劫持）
-    {
-      domain_keyword: ['nextdns'],
       server: 'dns_local'
     },
     // 反向解析使用本地
@@ -1279,6 +1282,12 @@ function generateSingBoxConfig(proxies, options = {}) {
     {
       rule_set: 'geosite-cn',
       server: 'dns_direct'
+    }
+  ] : [
+    // 不劫持 DNS 时，所有请求走本地
+    {
+      outbound: 'any',
+      server: 'dns_local'
     }
   ];
   
@@ -1373,16 +1382,15 @@ function generateSingBoxConfig(proxies, options = {}) {
           ip_cidr: ['45.90.28.0/24', '45.90.30.0/24'],
           outbound: 'direct'
         },
-        // ========== DNS 劫持 ==========
-        {
+        // ========== DNS 处理 ==========
+        // 启用 DoH 时劫持 DNS，否则放行 853 端口兼容系统 Private DNS
+        ...(useDoh ? [{
           protocol: 'dns',
           action: 'hijack-dns'
-        },
-        // DoT 端口放行（如果使用 DoT）
-        ...(useDot ? [{
+        }] : [{
           port: 853,
           outbound: 'direct'
-        }] : []),
+        }]),
         // ========== 常规规则 ==========
         {
           ip_is_private: true,
@@ -1439,7 +1447,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
   
-  const { urls, url, content, outboundsOnly, dotServer } = req.query;
+  const { urls, url, content, outboundsOnly, enableDoh, dohServer } = req.query;
   
   // 验证参数
   const urlList = (urls || url || '').split(',').filter(Boolean).map(u => u.trim());
@@ -1497,7 +1505,8 @@ export default async function handler(req, res) {
     // 生成 sing-box 配置
     const config = generateSingBoxConfig(allProxies, {
       outboundsOnly: outboundsOnly === 'true' || outboundsOnly === '1',
-      dotServer: dotServer ? decodeURIComponent(dotServer) : null
+      enableDoh: enableDoh === 'true' || enableDoh === '1',
+      dohServer: dohServer ? decodeURIComponent(dohServer) : null
     });
     
     // 统计信息
