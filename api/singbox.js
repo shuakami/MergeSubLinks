@@ -1229,61 +1229,76 @@ function generateSingBoxConfig(proxies, options = {}) {
   let dotServer = options.dotServer || '';
   const useDot = !!dotServer;
   
-  // DNS 服务器配置 (Legacy 格式 - 兼容性最好)
+  // 解析 DoT 服务器地址 (支持 tls://host 或纯 host 格式)
+  let dotHost = '';
+  let dotPort = 853;
+  if (useDot) {
+    let dotAddr = dotServer.replace(/^tls:\/\//, '');
+    if (dotAddr.includes(':')) {
+      const parts = dotAddr.split(':');
+      dotHost = parts[0];
+      dotPort = parseInt(parts[1], 10) || 853;
+    } else {
+      dotHost = dotAddr;
+    }
+  }
+  
+  // DNS 服务器配置 (sing-box 1.12+ 新格式)
   const dnsServers = useDot ? [
-    // 本地 DNS - 用于解析 DNS 服务器域名 (纯 IP)
+    // 本地 DNS - 用于解析 DNS 服务器域名 (系统 DNS)
     {
-      tag: 'dns-local',
-      address: '223.5.5.5',
-      detour: 'direct'
+      type: 'local',
+      tag: 'dns-local'
     },
-    // 国内 DNS (DoT)
+    // 国内 DNS (UDP) - 直连
     {
+      type: 'udp',
       tag: 'dns-direct',
-      address: 'tls://223.5.5.5',
-      detour: 'direct'
+      server: '119.29.29.29',
+      server_port: 53
     },
     // 代理 DNS (DoT) - 用户自定义
     {
+      type: 'tls',
       tag: 'dns-remote',
-      address: `tls://${dotServer}`,
-      address_resolver: 'dns-local',
-      detour: 'proxy'
+      server: dotHost,
+      server_port: dotPort,
+      domain_resolver: 'dns-local'
     }
   ] : [
-    // 本地 DNS - 用于解析 DNS 服务器域名 (纯 IP)
+    // 本地 DNS - 用于解析 DNS 服务器域名 (系统 DNS)
     {
-      tag: 'dns-local',
-      address: '223.5.5.5',
-      detour: 'direct'
+      type: 'local',
+      tag: 'dns-local'
     },
-    // 国内 DNS (DoH)
+    // 国内 DNS (UDP) - 直连
     {
+      type: 'udp',
       tag: 'dns-direct',
-      address: 'https://223.5.5.5/dns-query',
-      detour: 'direct'
+      server: '119.29.29.29',
+      server_port: 53
     },
     // 代理 DNS (DoH)
     {
+      type: 'https',
       tag: 'dns-remote',
-      address: 'https://1.1.1.1/dns-query',
-      address_resolver: 'dns-local',
-      detour: 'proxy'
+      server: '1.1.1.1',
+      server_port: 443,
+      path: '/dns-query',
+      domain_resolver: 'dns-local'
     }
   ];
   
-  // DNS 规则 (移除废弃的 outbound 规则)
+  // DNS 规则
   const dnsRules = [
     // 反向解析使用本地
     {
       domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
-      action: 'route',
       server: 'dns-local'
     },
     // 国内域名直连 DNS
     {
       rule_set: 'geosite-cn',
-      action: 'route',
       server: 'dns-direct'
     }
   ];
