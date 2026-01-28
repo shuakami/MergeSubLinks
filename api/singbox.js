@@ -1224,55 +1224,61 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   }
   
-  // 构建完整配置 (sing-box 1.11+ 格式)
+  // 构建完整配置 (sing-box 1.12+ 格式)
   // 根据 dotServer 参数决定 DNS 配置
   const useDot = !!options.dotServer;
   const dotAddr = options.dotServer || '8.8.8.8';
   
   // DNS 服务器配置
-  const dnsServers = useDot ? [
+  const dnsServers = [
+    // 本地 DNS - 强制物理直连，用于解析 DNS 服务器域名
     {
-      tag: 'dns-remote',
-      address: `tls://${dotAddr}`,
-      address_resolver: 'dns-local',
-      detour: 'proxy'
-    },
-    {
-      tag: 'dns-direct',
-      address: `tls://${dotAddr}`,
-      address_resolver: 'dns-local',
-      detour: 'proxy'  // DoT 服务器可能在国外，需要走代理
-    },
-    {
-      tag: 'dns-local',
+      tag: 'dns_local',
       address: '223.5.5.5',
       detour: 'direct'
     },
+    // 国内 DNS
     {
-      tag: 'dns-block',
+      tag: 'dns_direct',
+      address: 'https://223.5.5.5/dns-query',
+      address_resolver: 'dns_local',
+      detour: 'direct'
+    },
+    // 代理 DNS
+    {
+      tag: 'dns_proxy',
+      address: useDot ? `tls://${dotAddr}` : 'https://8.8.8.8/dns-query',
+      address_resolver: 'dns_local',
+      detour: 'proxy'
+    },
+    // 屏蔽 DNS
+    {
+      tag: 'dns_block',
       address: 'rcode://success'
     }
-  ] : [
+  ];
+  
+  // DNS 规则
+  const dnsRules = [
+    // 出站连接使用本地 DNS（防止循环）
     {
-      tag: 'dns-remote',
-      address: 'https://8.8.8.8/dns-query',
-      address_resolver: 'dns-local',
-      detour: 'proxy'
+      outbound: 'any',
+      server: 'dns_local'
     },
+    // NextDNS 域名强制本地解析（防止代理嗅探劫持）
     {
-      tag: 'dns-direct',
-      address: 'https://223.5.5.5/dns-query',
-      address_resolver: 'dns-local',
-      detour: 'direct'
+      domain_keyword: ['nextdns'],
+      server: 'dns_local'
     },
+    // 反向解析使用本地
     {
-      tag: 'dns-local',
-      address: '223.5.5.5',
-      detour: 'direct'
+      domain_suffix: ['.in-addr.arpa', '.ip6.arpa'],
+      server: 'dns_local'
     },
+    // 国内域名直连 DNS
     {
-      tag: 'dns-block',
-      address: 'rcode://success'
+      rule_set: 'geosite-cn',
+      server: 'dns_direct'
     }
   ];
   
@@ -1295,21 +1301,11 @@ function generateSingBoxConfig(proxies, options = {}) {
     },
     dns: {
       servers: dnsServers,
-      rules: [
-        {
-          outbound: 'any',
-          server: 'dns-local'
-        },
-        {
-          rule_set: 'geosite-cn',
-          server: 'dns-direct'
-        }
-      ],
-      final: 'dns-remote',
-      strategy: 'ipv4_only',
-      disable_cache: false,
-      disable_expire: false,
-      independent_cache: true
+      rules: dnsRules,
+      final: 'dns_proxy',
+      strategy: 'prefer_ipv4',
+      independent_cache: true,
+      reverse_mapping: true
     },
     inbounds: [
       {
@@ -1325,14 +1321,15 @@ function generateSingBoxConfig(proxies, options = {}) {
         strict_route: false,
         stack: 'mixed',
         sniff: true,
-        sniff_override_destination: false
+        sniff_override_destination: true
       },
       {
         type: 'mixed',
         tag: 'mixed-in',
         listen: '127.0.0.1',
         listen_port: 7890,
-        sniff: true
+        sniff: true,
+        sniff_override_destination: true
       }
     ],
     outbounds: [
@@ -1347,7 +1344,7 @@ function generateSingBoxConfig(proxies, options = {}) {
       {
         type: 'urltest',
         tag: 'auto',
-        outbounds: proxyTags,
+        outbounds: proxyTags.length > 0 ? proxyTags : ['direct'],
         url: 'https://www.gstatic.com/generate_204',
         interval: '5m',
         tolerance: 50
@@ -1358,20 +1355,35 @@ function generateSingBoxConfig(proxies, options = {}) {
       {
         type: 'direct',
         tag: 'direct'
+      },
+      // 屏蔽
+      {
+        type: 'block',
+        tag: 'block'
       }
     ],
     route: {
       rules: [
-        // 使用 DoT 时：不劫持 DNS，放行 853 端口，让系统 Private DNS 工作
-        ...(useDot ? [] : [{
+        // ========== 置顶规则：NextDNS 强制直连 ==========
+        {
+          domain_keyword: ['nextdns', 'test.nextdns.io', 'router.nextdns.io'],
+          outbound: 'direct'
+        },
+        {
+          ip_cidr: ['45.90.28.0/24', '45.90.30.0/24'],
+          outbound: 'direct'
+        },
+        // ========== DNS 劫持 ==========
+        {
           protocol: 'dns',
           action: 'hijack-dns'
-        }]),
-        // 放行 853 端口 (DoT)
+        },
+        // DoT 端口放行（如果使用 DoT）
         ...(useDot ? [{
           port: 853,
           outbound: 'direct'
         }] : []),
+        // ========== 常规规则 ==========
         {
           ip_is_private: true,
           outbound: 'direct'
