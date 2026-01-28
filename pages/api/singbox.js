@@ -1423,6 +1423,11 @@ function generateSingBoxConfig(proxies, options = {}) {
           protocol: 'dns',
           action: 'hijack-dns'
         },
+        // NextDNS 直连（保持 Anycast 最优解析）
+        {
+          domain_suffix: ['nextdns.io'],
+          outbound: 'direct'
+        },
         // 私有 IP 直连
         {
           ip_is_private: true,
@@ -1444,15 +1449,17 @@ function generateSingBoxConfig(proxies, options = {}) {
           tag: 'geosite-cn',
           type: 'remote',
           format: 'binary',
-          url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs',
-          download_detour: 'proxy'
+          url: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.srs',
+          download_detour: 'direct',
+          update_interval: '24h'
         },
         {
           tag: 'geoip-cn',
           type: 'remote',
           format: 'binary',
-          url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs',
-          download_detour: 'proxy'
+          url: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs',
+          download_detour: 'direct',
+          update_interval: '24h'
         }
       ],
       final: 'proxy',
