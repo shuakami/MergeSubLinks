@@ -1224,17 +1224,16 @@ function generateSingBoxConfig(proxies, options = {}) {
     }
   }
   
-  // 构建完整配置 (使用 Legacy DNS 格式确保兼容性)
-  // 解析用户输入的 DoT 服务器
-  let dotServer = options.dotServer || '';
-  const useDot = !!dotServer;
+  // 解析用户输入的 DoH 服务器
+  let dohServer = options.dohServer || '';
+  const useDoh = !!dohServer;
   
   // 解析 DoH 服务器地址 (支持完整 URL 或纯域名)
   let dohHost = '';
   let dohPort = 443;
   let dohPath = '/dns-query';
-  if (useDot) {
-    let dohAddr = dotServer.trim();
+  if (useDoh) {
+    let dohAddr = dohServer.trim();
     // 移除协议前缀
     dohAddr = dohAddr.replace(/^https?:\/\//, '');
     
@@ -1256,7 +1255,7 @@ function generateSingBoxConfig(proxies, options = {}) {
   }
   
   // DNS 服务器配置 (sing-box 1.12+ 新格式)
-  const dnsServers = useDot ? [
+  const dnsServers = useDoh ? [
     // 本地 DNS - 用于解析 DNS 服务器域名 (系统 DNS)
     {
       type: 'local',
@@ -1520,7 +1519,7 @@ export default async function handler(req, res) {
     // 生成 sing-box 配置
     const config = generateSingBoxConfig(allProxies, {
       outboundsOnly: outboundsOnly === 'true' || outboundsOnly === '1',
-      dotServer: dohServer ? decodeURIComponent(dohServer) : null
+      dohServer: dohServer ? decodeURIComponent(dohServer) : null
     });
     
     // 统计信息
