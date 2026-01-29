@@ -1447,6 +1447,16 @@ function generateSingBoxConfig(proxies, options = {}) {
           domain_suffix: ['nextdns.io'],
           outbound: 'direct'
         },
+        // Google 连接检测强制走代理（避免 Android "No internet access"）
+        {
+          domain: ['connectivitycheck.gstatic.com', 'www.gstatic.com', 'connectivitycheck.android.com'],
+          outbound: 'proxy'
+        },
+        {
+          domain_suffix: ['gstatic.com'],
+          domain_keyword: ['connectivitycheck'],
+          outbound: 'proxy'
+        },
         // 私有 IP 直连
         {
           ip_is_private: true,
